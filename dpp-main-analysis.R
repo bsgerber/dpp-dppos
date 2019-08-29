@@ -4,7 +4,7 @@
 # Bernice Man's DPP GDM Analysis (Prediction Model)
 #
 # Started 8/27/19
-# Revised 8/28/19
+# Revised 8/29/19
 #
 # Description:
 #
@@ -34,7 +34,7 @@ activities <- read.csv("C:\\Users\\bgerber\\Box Sync\\DPP-DPPOS\\Reproduced Anal
 
 S03.sel <- S03 %>%
   select(c("RELEASE_ID", "VISIT", "SODIAB", "SOETHN", "SOHGHT1", "SOHGHT2", 
-           "SOHGHT3", "SOSBPA", "SODBPA", "SOBMI", "SOLFAST", "SOL2HR", "SOPRTN"))
+           "SOHGHT3", "SOSBPA", "SODBPA", "SOBMI", "SOLFAST", "SOL2HR", "SOPRTN", "SOHSP"))
 S05.sel <- S05 %>%
   select(c("RELEASE_ID", "VISIT", "SIBIRTH", "SIMDIAB", "SIFDIAB", "SI100CG", "SISMOK", "SIPCOS", "SIWSTC1",
            "SIWSTC2", "SIWSTC3", "SIHIP1", "SIHIP2", "SIHIP3"))
@@ -48,7 +48,8 @@ main.data <- basedata %>%
   left_join(events, by = "RELEASE_ID") %>%
   left_join(lab.sel, by = "RELEASE_ID") %>%
   left_join(S03.sel, by = "RELEASE_ID") %>%
-  left_join(S05.sel, by = "RELEASE_ID")
+  left_join(S05.sel, by = "RELEASE_ID") %>%
+  mutate(RELEASE_ID = as.character(RELEASE_ID))
 
 # Check number of distinct IDs
 length(unique(Q03$RELEASE_ID))
@@ -58,7 +59,7 @@ Q03 %>%
   filter(RELEASE_ID == "10033391") %>%
   select(c("VISIT", "KVSTTYP", "KVSTWK", ends_with("CODE"), "DAYSRAND"))
 
-# Q03 has duplicate IDs, evaluate before merging
+# Q03 has duplicate IDs, even after filtering by "RUN", evaluate before merging
 Q03.sel %>%
   filter(duplicated(RELEASE_ID)) %>%
   select(RELEASE_ID)
@@ -67,42 +68,155 @@ Q03.sel %>%
 head(sort(Q03$DAYSRAND[Q03$VISIT == "RUN"]), 10)
 
 # Since there are 2 rows for ~6 subjects' physical activity at run-in, 
-# keep data with least number of days to randomization (least negative number)
+# keep data with least number of days to randomization (least negative number is the maximum)
 Q03.sel.uniq <- Q03.sel %>%
   mutate(RELEASE_ID = as.character(RELEASE_ID)) %>%
   group_by(RELEASE_ID) %>%
   slice(which.max(DAYSRAND)) %>%
   ungroup()
 
+#######################################
 # Convert activities to MET-hour/week
+#######################################
 
 # Show which rows have 'write-in' activities (these are currently ignored in lookup table activities)
 Q03.sel.uniq %>%
   select(ends_with("CODE")) %>%
   filter_all(any_vars(. == 38))
 
-# Calculate months, times/month, hours/time
+# Calculate months, times/month, hours/time for each activity (A through L)
+# To calculate MET–hour/Week: (#of months) x (times/month) x  (hours/time) ÷52 = hours/week
+# Or variables: (KAAJAN-KAADEC)  x ( KAATIME) x  (KAAMIN/60 ) ÷52 = hours/week(MET value kcal/kg/hr) x (hr/week) 
+# Note: multiply by # of METS based on activity code
 for (x in toupper(letters[1:12])) {
   firstcol <- which(colnames(Q03.sel.uniq) == paste0("KA", x, "JAN"))
   lastcol <- which(colnames(Q03.sel.uniq) == paste0("KA", x, "DEC"))
+  timecol <- which(colnames(Q03.sel.uniq) == paste0("KA", x, "TIME"))
+  mincol <- which(colnames(Q03.sel.uniq) == paste0("KA", x, "MIN"))
   actcol <- which(colnames(Q03.sel.uniq) == paste0("KA", x, "CODE"))
-  actvec <- unlist(Q03.sel.uniq[, actcol])
-  Q03.sel.uniq[[paste0("KAct", x)]] = activities[actvec, "METs"]
+  monthvar <- paste0("KMonth", x)
+  METvar <- paste0("KMET", x)
+  actvar <- paste0("KAct", x)
+  Q03.sel.uniq[[actvar]] = activities[unlist(Q03.sel.uniq[, actcol]), "METs"]
   Q03.sel.uniq <- Q03.sel.uniq %>%
-    mutate(!!paste0("KMonth", x) := rowSums(.[c(firstcol:lastcol)], na.rm = T)) 
+    mutate(!!monthvar := rowSums(.[c(firstcol:lastcol)], na.rm = T))
+  Q03.sel.uniq[[METvar]] = (Q03.sel.uniq[[monthvar]] * Q03.sel.uniq[[timecol]] * Q03.sel.uniq[[mincol]] * Q03.sel.uniq[[actvar]]) / (60 * 52)
 }
 
-# Check conversions for activities
-Q03.sel.uniq %>%
-  select("KABCODE", "KActB") %>%
-  head(n=10)
+# For each subject, add up MET-hr/week for all activities
+Q03.sel.uniq <- Q03.sel.uniq %>%
+  mutate(totalMETs = rowSums(select(., c(starts_with("KMET"))), na.rm = T))
 
-# Find unmatched records between Q03.sel.uniq and main data
+# Check conversions for activities (using A as example)
+Q03.sel.uniq %>%
+  with(table(KActA, KAACODE))
+
+# Check MET calculation
+Q03.sel.uniq %>%
+  select(c(starts_with("KMET"), totalMETs)) %>%
+  head(10)
+
+# Find unmatched records between Q03.sel.uniq and main data (~3 records)
 anti_join(main.data, Q03.sel.uniq, by = "RELEASE_ID")
 
-# Merge Q03 with main data
+# Merge Q03 activity METs data with main data
 main.data <- main.data %>%
-  left_join(Q03.sel.uniq, by = "RELEASE_ID")
+  left_join(select(Q03.sel.uniq, RELEASE_ID, totalMETs), by = "RELEASE_ID")
+
+#######################################
+# Label the factors
+#######################################
+
+# Variables to change to factors: "SEX", "SODIAB", "AGEGROUP", "RACE_ETH", "SOETHN", "SIMDIAB", "SIFDIAB",
+#               "SI100CG", "SISMOK", "SIPCOS", "SOBMI", "BMI_CAT", "BMIGROUP", "SOPRTN", "DIABF",
+#               "DIABV", "FASTHYPF", "SOHSP"
+
+main.data$SEX <- factor(main.data$SEX,
+                        labels = c("male", "female"))
+main.data$SODIAB <- factor(main.data$SODIAB,
+                           labels = c("no", "only during pregnancy", "yes, borderline", "yes", NA))
+main.data$AGEGROUP <- factor(main.data$AGEGROUP,
+                             labels = c("<40", "40-44", "45-49", "50-54", "55-59", "60-64", "65+"))
+main.data$RACE_ETH <- factor(main.data$RACE_ETH,
+                             labels = c("Caucasian", "African American", "Hispanic, of any race", "All other"))
+main.data$SOETHN <- factor(main.data$SOETHN, 
+                           levels = 1:7,
+                           labels = c("Caucasian", "African American", "Native American or American Indian",
+                                      "Eskimo", "Aleut", "Asian or Pacific Islander", "other"))
+main.data$SIMDIAB <- factor(main.data$SIMDIAB,
+                            labels = c("yes", "no", "DK", NA))
+main.data$SIFDIAB <- factor(main.data$SIFDIAB,
+                            labels = c("yes", "no", "DK", NA))
+main.data$SI100CG <- factor(main.data$SI100CG,
+                            labels = c("yes", "no"))
+main.data$SISMOK <- factor(main.data$SISMOK,
+                           labels = c("current", "former", NA))
+main.data$SIPCOS <- factor(main.data$SIPCOS,
+                           labels = c("yes", "no", NA))
+main.data$SOBMI <- factor(main.data$SOBMI, levels = 1:2,
+                          labels = c("yes", "no"))
+main.data$BMI_CAT <- factor(main.data$BMI_CAT, 
+                            labels = c("<26", "26 to <28", "28 to <30", "30 to <32", "32 to <34", "34 to <36", 
+                            "36 to <38", "38 to <40", "40 to <42", "42+"))
+main.data$BMIGROUP <- factor(main.data$BMIGROUP,
+                             labels = c("<30", "30 to <35", "35+"))
+main.data$SOPRTN <- factor(main.data$SOPRTN, levels = 1:6,
+                           labels = c("negative", "trace", "1+", "2+", "3+", "4+"))
+main.data$DIABF <- factor(main.data$DIABF,
+                          labels = c("no", "yes"))
+main.data$DIABV <- factor(main.data$DIABV,
+                          labels = c("month 6", "year 1", "month 18", "year 2", "month 30", "year 3", "month 42", "year 4",
+                                     "month 54", "year 5"))
+main.data$FASTHYPF <- factor(main.data$FASTHYPF,
+                             labels = c("no", "yes"))
+main.data$SOHSP <- factor(main.data$SOHSP,
+                          labels = c("yes", "no", NA))
+
+#######################################
+# Recode additional variables
+#######################################
+
+# Create new ethnicity variable
+
+main.data[which(main.data$RACE_ETH == "Caucasian"), "Ethnic"] <- "Caucasian"
+main.data[which(main.data$RACE_ETH == "African American"), "Ethnic"] <- "African American"
+main.data[which(main.data$RACE_ETH == "Hispanic, of any race" & main.data$SOHSP == "yes"), "Ethnic"] <- "Hispanic"
+main.data[which(main.data$SOETHN == "Asian or Pacific Islander" & main.data$RACE_ETH == "All other"), "Ethnic"] <- "Asian"
+main.data[which(main.data$RACE_ETH == "All other" & main.data$SOETHN != "Asian or Pacific Islander"), "Ethnic"] <- "Other"
+
+table(main.data$Ethnic)
+
+# Create average waist circumference and hip girth (note removal NAs in average calculations)
+
+main.data <- main.data %>%
+  mutate(WaistCircAve = rowMeans(.[, c("SIWSTC1", "SIWSTC2", "SIWSTC3")], na.rm = T),
+         HipGirthAve = rowMeans(.[, c("SIHIP1", "SIHIP2", "SIHIP3")], na.rm = T),
+         WTHRatio = WaistCircAve/HipGirthAve)
+
+#######################################
+# Select population of interest
+#######################################
+
+# Ensure all IDs are unique
+table(duplicated(main.data$RELEASE_ID))
+
+cat("Total Number Subjects: ", nrow(main.data))
+
+# Subset data to population of interest
+sub.data <- main.data %>%
+  filter(SEX == "female")
+
+cat("Subjects women: ", nrow(sub.data))
+
+sub.data <- sub.data %>%
+  filter(SODIAB == "only during pregnancy")
+
+cat("Subjects women, DM during pregnancy: ", nrow(sub.data))
+
+sub.data <- sub.data %>%
+  filter(SIBIRTH > 0)
+
+cat("Subjects women, DM during pregnancy, births>0: ", nrow(sub.data))
 
 
 
