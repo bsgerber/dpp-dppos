@@ -1,0 +1,70 @@
+---
+title: "R Notebook"
+author: "Bernice Man"
+date: "August 30, 2019"
+output: 
+  word_document:
+    reference_docx: "word-styles-reference-01.docx"
+---
+
+Table 1 document for Analysis 1: Descriptive characteristics of sample. 
+
+##### Table 1
+
+```{r echo=FALSE, results="asis"}
+
+library(arsenal)
+
+# Read datafile
+sub.data <- readRDS(file = file.choose())
+
+table1 <- tableby(ASSIGN ~ AGEGROUP + Ethnic + SIMDIAB + SIFDIAB + SIBIRTH + 
+                    BMI_CAT + SOSBPA + SODBPA + WaistCircAve + WTHRatio +
+                    G000 + HBA1 + CHOL + CHDL + CLDL + TRIG + CREA + UALB +
+                    I000 + SGPT + SGOT + CRP + totalMETs,
+                    control = tableby.control(numeric.stats = c("meansd"), total = FALSE),
+                    data = sub.data)
+
+tablabels <- list(
+  AGEGROUP = "Age Group, N(%)",
+  Ethnic = "Ethnicity, N(%)",
+  SIMDIAB = "Mother with Diabetes, N(%)",
+  SIFDIAB = "Father with Diabetes, N(%)",
+  SIBIRTH = "Live Births, Mean",
+  BMI_CAT = "BMI Category, N(%)",
+  SOSBPA = "Systolic BP",
+  SODBPA = "Diastolic BP",
+  WaistCircAve = "Waist Circumference",
+  WTHRatio = "Waist:Hip",
+  G000 = "Fasting Glucose",
+  HBA1 = "Hemoglobin A1c",
+  CHOL = "Total Cholesterol",
+  CHDL = "HDL",
+  CLDL = "LDL",
+  TRIG = "Triglyceride",
+  CREA = "Creatinine",
+  UALB = "Urine Albumin",
+  I000 = "Fasting Insulin",
+  SGPT = "ALT",
+  SGOT = "AST",
+  CRP = "CRP",
+  totalMETs = "MET-hours/week"
+)
+
+summary(table1, 
+        pfootnote = TRUE, 
+        title = "Baseline Characteristics by Treatment Assignment",
+        labelTranslations = tablabels,
+        digits = 3,
+        digits.count = 0,
+        digits.pct = 1,
+        digits.p = 2)
+```
+
+##### Missing Data
+
+```{r}
+apply(is.na(sub.data),2,sum)
+```
+
+End of document.

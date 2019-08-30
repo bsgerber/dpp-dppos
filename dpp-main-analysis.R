@@ -4,7 +4,7 @@
 # Bernice Man's DPP GDM Analysis (Prediction Model)
 #
 # Started 8/27/19
-# Revised 8/29/19
+# Revised 8/30/19
 #
 # Description:
 #
@@ -132,9 +132,9 @@ main.data <- main.data %>%
 #               "DIABV", "FASTHYPF", "SOHSP"
 
 main.data$SEX <- factor(main.data$SEX,
-                        labels = c("male", "female"))
+                        labels = c("Male", "Female"))
 main.data$SODIAB <- factor(main.data$SODIAB,
-                           labels = c("no", "only during pregnancy", "yes, borderline", "yes", NA))
+                           labels = c("No", "Only during pregnancy", "Yes, borderline", "Yes", NA))
 main.data$AGEGROUP <- factor(main.data$AGEGROUP,
                              labels = c("<40", "40-44", "45-49", "50-54", "55-59", "60-64", "65+"))
 main.data$RACE_ETH <- factor(main.data$RACE_ETH,
@@ -142,35 +142,35 @@ main.data$RACE_ETH <- factor(main.data$RACE_ETH,
 main.data$SOETHN <- factor(main.data$SOETHN, 
                            levels = 1:7,
                            labels = c("Caucasian", "African American", "Native American or American Indian",
-                                      "Eskimo", "Aleut", "Asian or Pacific Islander", "other"))
+                                      "Eskimo", "Aleut", "Asian or Pacific Islander", "Other"))
 main.data$SIMDIAB <- factor(main.data$SIMDIAB,
-                            labels = c("yes", "no", "DK", NA))
+                            labels = c("Yes", "No", "Don't Know", NA))
 main.data$SIFDIAB <- factor(main.data$SIFDIAB,
-                            labels = c("yes", "no", "DK", NA))
+                            labels = c("Yes", "No", "Don't Know", NA))
 main.data$SI100CG <- factor(main.data$SI100CG,
-                            labels = c("yes", "no"))
+                            labels = c("Yes", "No"))
 main.data$SISMOK <- factor(main.data$SISMOK,
-                           labels = c("current", "former", NA))
+                           labels = c("Current", "Former", NA))
 main.data$SIPCOS <- factor(main.data$SIPCOS,
-                           labels = c("yes", "no", NA))
+                           labels = c("Yes", "No", NA))
 main.data$SOBMI <- factor(main.data$SOBMI, levels = 1:2,
-                          labels = c("yes", "no"))
+                          labels = c("Yes", "No"))
 main.data$BMI_CAT <- factor(main.data$BMI_CAT, 
                             labels = c("<26", "26 to <28", "28 to <30", "30 to <32", "32 to <34", "34 to <36", 
                             "36 to <38", "38 to <40", "40 to <42", "42+"))
 main.data$BMIGROUP <- factor(main.data$BMIGROUP,
                              labels = c("<30", "30 to <35", "35+"))
 main.data$SOPRTN <- factor(main.data$SOPRTN, levels = 1:6,
-                           labels = c("negative", "trace", "1+", "2+", "3+", "4+"))
+                           labels = c("Negative", "Trace", "1+", "2+", "3+", "4+"))
 main.data$DIABF <- factor(main.data$DIABF,
-                          labels = c("no", "yes"))
+                          labels = c("No", "Yes"))
 main.data$DIABV <- factor(main.data$DIABV,
-                          labels = c("month 6", "year 1", "month 18", "year 2", "month 30", "year 3", "month 42", "year 4",
-                                     "month 54", "year 5"))
+                          labels = c("Month 6", "Year 1", "Month 18", "Year 2", "Month 30", "Year 3", "Month 42", "Year 4",
+                                     "Month 54", "Year 5"))
 main.data$FASTHYPF <- factor(main.data$FASTHYPF,
-                             labels = c("no", "yes"))
+                             labels = c("No", "Yes"))
 main.data$SOHSP <- factor(main.data$SOHSP,
-                          labels = c("yes", "no", NA))
+                          labels = c("Yes", "No", NA))
 
 #######################################
 # Recode additional variables
@@ -180,7 +180,7 @@ main.data$SOHSP <- factor(main.data$SOHSP,
 
 main.data[which(main.data$RACE_ETH == "Caucasian"), "Ethnic"] <- "Caucasian"
 main.data[which(main.data$RACE_ETH == "African American"), "Ethnic"] <- "African American"
-main.data[which(main.data$RACE_ETH == "Hispanic, of any race" & main.data$SOHSP == "yes"), "Ethnic"] <- "Hispanic"
+main.data[which(main.data$RACE_ETH == "Hispanic, of any race" & main.data$SOHSP == "Yes"), "Ethnic"] <- "Hispanic"
 main.data[which(main.data$SOETHN == "Asian or Pacific Islander" & main.data$RACE_ETH == "All other"), "Ethnic"] <- "Asian"
 main.data[which(main.data$RACE_ETH == "All other" & main.data$SOETHN != "Asian or Pacific Islander"), "Ethnic"] <- "Other"
 
@@ -204,12 +204,12 @@ cat("Total Number Subjects: ", nrow(main.data))
 
 # Subset data to population of interest
 sub.data <- main.data %>%
-  filter(SEX == "female")
+  filter(SEX == "Female")
 
 cat("Subjects women: ", nrow(sub.data))
 
 sub.data <- sub.data %>%
-  filter(SODIAB == "only during pregnancy")
+  filter(SODIAB == "Only during pregnancy")
 
 cat("Subjects women, DM during pregnancy: ", nrow(sub.data))
 
@@ -218,6 +218,14 @@ sub.data <- sub.data %>%
 
 cat("Subjects women, DM during pregnancy, births>0: ", nrow(sub.data))
 
+sub.data <- sub.data %>%
+  filter(ASSIGN != "Troglitazone")
 
+cat("Subjects women, DM during pregnancy, births>0, not on Troglitazone: ", nrow(sub.data))
 
+#######################################
+# Save the final subset of data (sub.data) with datetime stamp
+#######################################
 
+filename <- paste0(format(Sys.time(), '%Y%m%d_%H%M%S_'), 'dpp_gdm_data.Rda')
+saveRDS(sub.data, file = filename)
