@@ -1,13 +1,15 @@
 ---
 title: "R Notebook"
 author: "Bernice Man"
-date: "August 30, 2019"
+date: "September 13, 2019"
 output: 
   word_document:
     reference_docx: "word-styles-reference-01.docx"
 ---
 
 Table 1 document for Analysis 1: Descriptive characteristics of sample. 
+
+Alternative to knit: rmarkdown::render('analysis 1.rmd')
 
 ##### Table 1
 
@@ -18,44 +20,48 @@ library(arsenal)
 # Read datafile
 sub.data <- readRDS(file = file.choose())
 
-table1 <- tableby(ASSIGN ~ AGEGROUP + Ethnic + SIMDIAB + SIFDIAB + SIBIRTH + 
-                    BMI_CAT + SOSBPA + SODBPA + WaistCircAve + WTHRatio +
-                    G000 + HBA1 + CHOL + CHDL + CLDL + TRIG + CREA + UALB +
-                    I000 + SGPT + SGOT + CRP + totalMETs,
-                    control = tableby.control(numeric.stats = c("meansd"), total = FALSE),
+table1 <- tableby(ASSIGN ~ 
+                    chisq(AGEGROUP, "countpct") +
+                    chisq(Ethnic, "countpct") +
+                    chisq(SISMOK, "countpct", cat.simplify = FALSE) +
+                    chisq(SIPCOS, "countpct", cat.simplify = FALSE) +
+                    chisq(BMI_CAT, "countpct") + 
+                    chisq(FamHx, "countpct") +
+                    kwt(SIBIRTH, "medianq1q3", digits = 1) + 
+                    kwt(WaistCircAve, "medianq1q3", digits = 1) +
+                    anova(WTHRatio, "meansd", digits = 3) +
+                    kwt(G000, "medianq1q3", digits = 0) + 
+                    kwt(HBA1, "medianq1q3", digits = 1) + 
+                    kwt(totalMETs, "medianq1q3", digits = 1) +
+                    kwt(SOSBPA, "medianq1q3", digits = 0) +
+                    kwt(SODBPA, "medianq1q3", digits = 0) +
+                    kwt(TRIG, "medianq1q3", digits = 0),
+                    control = tableby.control(total = FALSE),
+                    numeric.simplify=TRUE,
+                    cat.simplify=TRUE,
                     data = sub.data)
 
 tablabels <- list(
   AGEGROUP = "Age Group, N(%)",
   Ethnic = "Ethnicity, N(%)",
-  SIMDIAB = "Mother with Diabetes, N(%)",
-  SIFDIAB = "Father with Diabetes, N(%)",
-  SIBIRTH = "Live Births, Mean",
-  BMI_CAT = "BMI Category, N(%)",
-  SOSBPA = "Systolic BP",
-  SODBPA = "Diastolic BP",
-  WaistCircAve = "Waist Circumference",
-  WTHRatio = "Waist:Hip",
-  G000 = "Fasting Glucose",
-  HBA1 = "Hemoglobin A1c",
-  CHOL = "Total Cholesterol",
-  CHDL = "HDL",
-  CLDL = "LDL",
-  TRIG = "Triglyceride",
-  CREA = "Creatinine",
-  UALB = "Urine Albumin",
-  I000 = "Fasting Insulin",
-  SGPT = "ALT",
-  SGOT = "AST",
-  CRP = "CRP",
-  totalMETs = "MET-hours/week"
+  SISMOK = "If Smoked, Status, N(%)",
+  SIPCOS = "PCOS History, N(%)",
+  FamHx = "Family History, N(%)",
+  SIBIRTH = "Live Births, Median",
+  BMI_CAT = "BMI Category (kg/m\U00B2), N(%)",
+  WaistCircAve = "Waist Circumference, Median",
+  WTHRatio = "Waist:Hip Ratio, Mean",
+  G000 = "Fasting Glucose, Median",
+  HBA1 = "Hemoglobin A1c, Median",
+  totalMETs = "MET-hours/week, Median",
+  SOSBPA = "Systolic BP (mm Hg), Median",
+  SODBPA = "Diastolic BP (mm Hg), Median",
+  TRIG = "Triglyceride (mg/dL), Median"
 )
 
 summary(table1, 
-        pfootnote = TRUE, 
         title = "Baseline Characteristics by Treatment Assignment",
         labelTranslations = tablabels,
-        digits = 3,
         digits.count = 0,
         digits.pct = 1,
         digits.p = 2)
@@ -65,6 +71,24 @@ summary(table1,
 
 ```{r}
 apply(is.na(sub.data),2,sum)
+```
+
+##### Distributions
+
+```{r}
+library(ggplot2)
+
+ggplot(data = sub.data, aes(SIBIRTH)) +
+  geom_histogram(binwidth = 1) +
+  labs(x = "Live Births")
+
+ggplot(data = sub.data, aes(WTHRatio)) +
+  geom_histogram(binwidth = .01) +
+  labs(x = "Waist:Hip Ratio")
+
+ggplot(data = sub.data, aes(totalMETs)) +
+  geom_histogram(binwidth = 10) +
+  labs(x = "Total METs")
 ```
 
 End of document.

@@ -1,0 +1,135 @@
+---
+title: "R Notebook"
+author: "Bernice Man"
+date: "September 13, 2019"
+output: 
+  word_document:
+    reference_docx: "word-styles-reference-01.docx"
+---
+
+Analysis 2: Cox proportional hazards model for diabetes prediction in GDM 
+
+Alternative to knit: rmarkdown::render('analysis 2.rmd')
+
+##### Descriptives for Variables Scaled
+
+```{r echo=FALSE}
+
+library(psych)
+library(survival)
+library(broom)
+library(ggplot2)
+library(Rmisc)
+library(knitr)
+library(tidyverse)
+library(caret)
+
+# Read datafile
+sub.data <- readRDS(file = file.choose())
+
+# Make sure Placebo is reference group and drop 'troglitazone' (unused levels)
+sub.data$ASSIGN <- relevel(sub.data$ASSIGN, ref = "Placebo")
+sub.data$ASSIGN <- droplevels(sub.data$ASSIGN)
+
+# Variables to normalize
+varnorm <- c('AvgHeight', 'WTHRatio','G000','HBA1','logTRIG')
+zvarnorm <- paste0('z', varnorm)
+
+# Normalize and create new variable 'z' + old variable name, and add to data frame
+sub.data[zvarnorm] <- lapply(sub.data[varnorm], scale)
+
+describe(sub.data[, c(varnorm, zvarnorm)])
+
+# Number of subjects before and after selecting complete cases
+varselect <- c('ASSIGN','zAvgHeight','zWTHRatio','BMIGROUP','zG000','zHBA1','zlogTRIG')
+cat('Number of subjects:', nrow(sub.data))
+sub.data <- sub.data[complete.cases(sub.data[, varselect]), ]
+cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselect, ')')
+```
+
+##### Table 2 Cox Proportional Hazards Model
+
+```{r echo=FALSE}
+
+# Cox Proportional Hazard Model
+# DIABF of No = censored (0), Yes = diabetes (1)
+# New variable for DM outcome is DiabYes
+sub.data <- sub.data %>%
+  mutate(DiabYes = ifelse(DIABF == "Yes", 1, 0))
+
+# Specify interactions
+varint <- c('ASSIGN*BMIGROUP')
+
+# Create CPH Model, DIABT is follow up time with right censored data, and DiabYes is event (1 = diabetes event)
+m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
+m1form <- as.formula(paste("m1surv ~ ", paste(c(varselect, varint), collapse = "+")))
+
+m1 <-coxph(m1form, data=sub.data, ties='efron')
+m1tidy <- tidy(m1)
+m1tidy$term <- c('Lifestyle', 'Metformin', 'Height (mean), Std', 'Waist:Hip Ratio, Std',
+                       'BMI 30-35', 'BMI 35+', 'Fasting Glucose, Std', 'HbA1c, Std', 'Triglycerides (ln), Std',
+                       'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+                       'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+kable(m1tidy, digits=3)
+```
+
+##### Figure 1 Survival Plots
+
+```{r echo=FALSE}
+
+# Create new data frame and set DiabYes to 0 (no diabetes) and DIABT to 3 (3 years)
+newdf <- sub.data
+newdf$DIABT <- 3
+newdf$DiabYes <- 0
+
+# Calculate predicted probability of diabetes at 3 years based on cph model
+sub.data$survprob <- exp(-predict(m1, newdata=newdf, type="expected"))
+
+# Plot predicted probability by BMI graoup and treatment assignment
+ggplot(sub.data, aes(y=survprob, x=BMIGROUP, fill=ASSIGN)) +
+     geom_boxplot() +
+     scale_y_continuous("Predicted Survival Probability at 3 years") +
+     scale_x_discrete("BMI Group") +
+     theme_bw()
+```
+
+##### Figure 2 Observed Vs. Predicted Probability of Diabetes
+
+```{r echo=FALSE}
+
+# Convert predicted probabilities to factor of deciles
+sub.data$diabprobf <- factor(floor((1-sub.data$survprob)*10),
+                      levels=0:9,
+                      labels=c("0-9%","10-19%","20-29%","30-39%",
+                              "40-49%","50-59%","60-69%","70-79%",
+                              "80-89%","90-99%"))
+
+# For each decile get std dev, std error, conf int
+agg <- summarySE(sub.data, measurevar="DiabYes", groupvars="diabprobf")
+
+# As NaNs produced (maybe only 1 case in a percentile) use only complete cases so some deciles may be missing
+agg <- agg[complete.cases(agg), ]
+
+# Create plot of observed vs. predicted probability of diabetes
+ggplot(agg, aes(x=diabprobf, y=DiabYes)) +
+      geom_point() +
+      geom_errorbar(aes(ymin=pmax(DiabYes-ci, 0), ymax=pmin(DiabYes+ci, 1))) +
+      scale_y_continuous("Observed prevalence of diabetes", breaks=seq(0, 1, .1)) +
+      scale_x_discrete("Predicted 3-year probability of diabetes") +
+      theme_bw()
+```
+
+##### k-fold cross validation
+
+```{r echo=FALSE}
+
+# K-fold validation with logistic model
+train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
+m2 <- train(DIABF ~ ASSIGN + zWTHRatio + BMIGROUP + zG000 + zHBA1, 
+            data = sub.data, trControl = train_control, method = "glm", family = "binomial")
+
+# Show the final model
+m2$finalModel
+```
+
+

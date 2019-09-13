@@ -4,7 +4,7 @@
 # Bernice Man's DPP GDM Analysis (Prediction Model)
 #
 # Started 8/27/19
-# Revised 8/30/19
+# Revised 9/12/19
 #
 # Description:
 #
@@ -186,12 +186,24 @@ main.data[which(main.data$RACE_ETH == "All other" & main.data$SOETHN != "Asian o
 
 table(main.data$Ethnic)
 
-# Create average waist circumference and hip girth (note removal NAs in average calculations)
+# Create average height, waist circumference and hip girth, and ratio (note removal NAs in average calculations)
 
 main.data <- main.data %>%
-  mutate(WaistCircAve = rowMeans(.[, c("SIWSTC1", "SIWSTC2", "SIWSTC3")], na.rm = T),
+  mutate(AvgHeight = rowMeans(.[, c("SOHGHT1", "SOHGHT2", "SOHGHT3")], na.rm = T),
+         WaistCircAve = rowMeans(.[, c("SIWSTC1", "SIWSTC2", "SIWSTC3")], na.rm = T),
          HipGirthAve = rowMeans(.[, c("SIHIP1", "SIHIP2", "SIHIP3")], na.rm = T),
          WTHRatio = WaistCircAve/HipGirthAve)
+
+# Create a family history variable, 'yes' if either mother or father with positive history
+# Otherwise will be 'no'
+
+main.data$FamHx <- factor(ifelse(main.data$SIMDIAB == "Yes" | main.data$SIFDIAB == "Yes",
+                                 "Yes", "No"))
+
+# Create logTRIG variable use natural logarithm per Herman
+# Herman also excluded TG>= 1000 or on fenofibrate (consider)
+
+main.data$logTRIG <- log(main.data$TRIG)
 
 #######################################
 # Select population of interest
