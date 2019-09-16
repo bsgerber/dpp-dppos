@@ -23,7 +23,7 @@ sub.data <- readRDS(file = file.choose())
 table1 <- tableby(ASSIGN ~ 
                     chisq(AGEGROUP, "countpct") +
                     chisq(Ethnic, "countpct") +
-                    chisq(SISMOK, "countpct", cat.simplify = FALSE) +
+                    chisq(Smoke, "countpct", cat.simplify = FALSE) +
                     chisq(SIPCOS, "countpct", cat.simplify = FALSE) +
                     chisq(BMI_CAT, "countpct") + 
                     chisq(FamHx, "countpct") +
@@ -44,7 +44,7 @@ table1 <- tableby(ASSIGN ~
 tablabels <- list(
   AGEGROUP = "Age Group, N(%)",
   Ethnic = "Ethnicity, N(%)",
-  SISMOK = "If Smoked, Status, N(%)",
+  Smoke = "Smoking Status, N(%)",
   SIPCOS = "PCOS History, N(%)",
   FamHx = "Family History, N(%)",
   SIBIRTH = "Live Births, Median",

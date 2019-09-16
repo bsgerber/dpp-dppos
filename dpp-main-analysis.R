@@ -4,7 +4,7 @@
 # Bernice Man's DPP GDM Analysis (Prediction Model)
 #
 # Started 8/27/19
-# Revised 9/12/19
+# Revised 9/16/19
 #
 # Description:
 #
@@ -204,6 +204,15 @@ main.data$FamHx <- factor(ifelse(main.data$SIMDIAB == "Yes" | main.data$SIFDIAB 
 # Herman also excluded TG>= 1000 or on fenofibrate (consider)
 
 main.data$logTRIG <- log(main.data$TRIG)
+
+# Create Smoke variable to include non-smokers (<= 100 cig/lifetime), with former and current smokers
+# First check to make sure all NA are <=100 cig/lifetime
+
+table(main.data$SISMOK, main.data$SI100CG)
+
+main.data$Smoke <- main.data$SISMOK
+levels(main.data$Smoke) <- c(levels(main.data$Smoke), "<= 100 cig lifetime")
+main.data$Smoke[is.na(main.data$Smoke)] <- "<= 100 cig lifetime"
 
 #######################################
 # Select population of interest

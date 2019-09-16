@@ -23,6 +23,8 @@ library(Rmisc)
 library(knitr)
 library(tidyverse)
 library(caret)
+library(rms)
+library(survminer)
 
 # Read datafile
 sub.data <- readRDS(file = file.choose())
@@ -60,6 +62,9 @@ sub.data <- sub.data %>%
 # Specify interactions
 varint <- c('ASSIGN*BMIGROUP')
 
+# Specify units of time (years)
+units(sub.data$DIABT) <- "Year"
+
 # Create CPH Model, DIABT is follow up time with right censored data, and DiabYes is event (1 = diabetes event)
 m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
 m1form <- as.formula(paste("m1surv ~ ", paste(c(varselect, varint), collapse = "+")))
@@ -71,6 +76,17 @@ m1tidy$term <- c('Lifestyle', 'Metformin', 'Height (mean), Std', 'Waist:Hip Rati
                        'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
                        'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
 kable(m1tidy, digits=3)
+```
+
+##### Table 3 Covariates and Proportional Hazards Assumption
+
+```{r echo=FALSE}
+# Check each covariate (proportional hazards assumption)
+res1 <- cox.zph(m1)
+res1
+
+# Plot residuals (Schoenfeld residuals vs. time)
+plot(res1)
 ```
 
 ##### Figure 1 Survival Plots
@@ -119,17 +135,65 @@ ggplot(agg, aes(x=diabprobf, y=DiabYes)) +
       theme_bw()
 ```
 
-##### k-fold cross validation
+##### Figure 3 Goodness of CPH Model Fit
+
+```{r echo=FALSE}
+
+# Check proportional hazards assumption
+ggcoxdiagnostics(m1, type="schoenfeld")
+
+# Check nonlinearity
+ggcoxdiagnostics(m1, type="martingale")
+
+# Check influential observations
+ggcoxdiagnostics(m1, type="deviance")
+```
+
+##### Figure 4 Validation
+
+```{r echo=FALSE}
+
+# References
+# https://socialsciences.mcmaster.ca/jfox/Books/Companion-1E/appendix-cox-regression.pdf
+
+# Check for concordance (includes (1-c-statistic))
+concordance(m1surv ~ predict(m1))
+
+# Use cph from rms package (should give similar results to coxph)
+m2 <- cph(formula = m1form, data = sub.data, x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+m2
+
+# Validation with 10-fold cross validation (set seed for reproducibility)
+set.seed(1)
+v1 <- validate(m2, method="crossvalidation", B = 10, dxy=T)
+v1
+
+# C-statistic by Dxy
+# https://www.rdocumentation.org/packages/rms/versions/5.1-3.1/topics/validate.cph
+# Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+Dxy = v1[rownames(v1)=="Dxy", colnames(v1)=="index.corrected"]
+orig_Dxy = v1[rownames(v1)=="Dxy", colnames(v1)=="index.orig"]
+bias_corrected_c_index  <- (abs(Dxy)/2)+0.5
+orig_c_index <- (abs(orig_Dxy)/2)+0.5
+cat("Bias corrected c-index: ", bias_corrected_c_index)
+cat("Original c-index: ", orig_c_index)
+
+# 3-year probability estimates with calibrate
+cal <- calibrate(m2, B=10, u=3)
+plot(cal, ylim = c(0,1))
+```
+
+##### k-fold cross validation of logistic regression
 
 ```{r echo=FALSE}
 
 # K-fold validation with logistic model
 train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
-m2 <- train(DIABF ~ ASSIGN + zWTHRatio + BMIGROUP + zG000 + zHBA1, 
+m3 <- train(DIABF ~ ASSIGN + zWTHRatio + BMIGROUP + zG000 + zHBA1, 
             data = sub.data, trControl = train_control, method = "glm", family = "binomial")
 
 # Show the final model
-m2$finalModel
+m3$finalModel
 ```
 
 
