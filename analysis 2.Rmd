@@ -40,7 +40,7 @@ zvarnorm <- paste0('z', varnorm)
 # Normalize and create new variable 'z' + old variable name, and add to data frame
 sub.data[zvarnorm] <- lapply(sub.data[varnorm], scale)
 
-describe(sub.data[, c(varnorm, zvarnorm)])
+psych::describe(sub.data[, c(varnorm, zvarnorm)])
 
 # Number of subjects before and after selecting complete cases
 varselect <- c('ASSIGN','zAvgHeight','zWTHRatio','BMIGROUP','zG000','zHBA1','zlogTRIG')
