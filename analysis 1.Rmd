@@ -1,7 +1,7 @@
 ---
 title: "R Notebook"
 author: "Bernice Man"
-date: "September 13, 2019"
+date: "September 24, 2019"
 output: 
   word_document:
     reference_docx: "word-styles-reference-01.docx"
@@ -22,7 +22,7 @@ sub.data <- readRDS(file = file.choose())
 
 table1 <- tableby(ASSIGN ~ 
                     chisq(AGEGROUP, "countpct") +
-                    chisq(Ethnic, "countpct") +
+                    chisq(RACE_ETH, "countpct") +
                     chisq(Smoke, "countpct", cat.simplify = FALSE) +
                     chisq(SIPCOS, "countpct", cat.simplify = FALSE) +
                     chisq(BMI_CAT, "countpct") + 
@@ -43,7 +43,7 @@ table1 <- tableby(ASSIGN ~
 
 tablabels <- list(
   AGEGROUP = "Age Group, N(%)",
-  Ethnic = "Ethnicity, N(%)",
+  RACE_ETH = "Ethnicity, N(%)",
   Smoke = "Smoking Status, N(%)",
   SIPCOS = "PCOS History, N(%)",
   FamHx = "Family History, N(%)",
