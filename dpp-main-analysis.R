@@ -22,28 +22,41 @@ library(tidyverse)
 username <- Sys.info()[7]
 
 # List paths for data directory
-paths <- c(
+paths1 <- c(
   "C:\\Users\\bgerber\\Box Sync\\DPP-DPPOS\\Reproduced Analysis\\data\\",
   "C:\\Users\\bernicem\\Box\\prediction model\\DPP-DPPOS\\Reproduced Analysis\\data\\",
-  "C:\\Users\\Wholebean\\Box\\prediction model\\DPP-DPPOS\\Reproduced Analysis\\data\\"
+  "/Users/Wholebean/Box/prediction model/DPP-DPPOS/Reproduced Analysis/data/"
 )
+names(paths1) <- c("bgerber", "bernicem", "Wholebean")
 
-names(paths) <- c("bgerber", "bernicem", "Wholebean")
+paths2 <- c(
+  "Unzipped\\Data\\DPP_Data_2008\\Form_Data\\Data\\",
+  "Unzipped\\Data\\DPP_Data_2008\\Form_Data\\Data\\",
+  "Unzipped/Data/DPP_Data_2008/Form_Data/Data/"
+)
+names(paths2) <- c("bgerber", "bernicem", "Wholebean")
+
+paths3 <- c(
+  "Unzipped\\Data\\DPP_Data_2008\\Non-Form_Data\\Data\\",
+  "Unzipped\\Data\\DPP_Data_2008\\Non-Form_Data\\Data\\",
+  "Unzipped/Data/DPP_Data_2008/Non-Form_Data/Data/"
+)
+names(paths3) <- c("bgerber", "bernicem", "Wholebean")
 
 # Set path based on user
-setwd(paths[username])
+setwd(paths1[username])
 
 # Read in selected data files 
 # Forms:  S03, S05, Q03
 # Nonforms: basedata.sas7bdat, lab.sas7bdat, events.sas7bdat
 
-S03 <- read.sas7bdat("Unzipped\\Data\\DPP_Data_2008\\Form_Data\\Data\\s03.sas7bdat")
-S05 <- read.sas7bdat("Unzipped\\Data\\DPP_Data_2008\\Form_Data\\Data\\s05.sas7bdat")
-Q03 <- read.sas7bdat("Unzipped\\Data\\DPP_Data_2008\\Form_Data\\Data\\q03.sas7bdat")
+S03 <- read.sas7bdat(paste0(paths1[username], paths2[username], "s03.sas7bdat"))
+S05 <- read.sas7bdat(paste0(paths1[username], paths2[username], "s05.sas7bdat"))
+Q03 <- read.sas7bdat(paste0(paths1[username], paths2[username], "q03.sas7bdat"))
 
-basedata <- read.sas7bdat("Unzipped\\Data\\DPP_Data_2008\\Non-Form_Data\\Data\\basedata.sas7bdat")
-lab <- read.sas7bdat("Unzipped\\Data\\DPP_Data_2008\\Non-Form_Data\\Data\\lab.sas7bdat")
-events <- read.sas7bdat("Unzipped\\Data\\DPP_Data_2008\\Non-Form_Data\\Data\\events.sas7bdat")
+basedata <- read.sas7bdat(paste0(paths1[username], paths3[username], "basedata.sas7bdat"))
+lab <- read.sas7bdat(paste0(paths1[username], paths3[username], "lab.sas7bdat"))
+events <- read.sas7bdat(paste0(paths1[username], paths3[username], "events.sas7bdat"))
 
 activities <- read.csv("MAQactivities with Updated METs.csv")
 
