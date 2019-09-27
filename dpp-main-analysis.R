@@ -4,9 +4,13 @@
 # Bernice Man's DPP GDM Analysis (Prediction Model)
 #
 # Started 8/27/19
-# Revised 9/24/19
+# Revised 9/27/19
 #
-# Description:
+# Description: 
+# Develop a prediction model for women with gestational diabetes
+# using data from the DPP trial. This data set will be read
+# in by analysis 1 for descriptive table based on treatment group,
+# and analysis 2 for modeling.
 #
 ###########################################################
 
@@ -19,10 +23,12 @@ username <- Sys.info()[7]
 
 # List paths for data directory
 paths <- c(
-  "C:\\Users\\bgerber\\Box Sync\\DPP-DPPOS\\Reproduced Analysis\\data\\"
+  "C:\\Users\\bgerber\\Box Sync\\DPP-DPPOS\\Reproduced Analysis\\data\\",
+  "C:\\Users\\bernicem\\Box\\prediction model\\DPP-DPPOS\\Reproduced Analysis\\data\\",
+  "C:\\Users\\Wholebean\\Box\\prediction model\\DPP-DPPOS\\Reproduced Analysis\\data\\"
 )
 
-names(paths) <- c("bgerber")
+names(paths) <- c("bgerber", "bernicem", "Wholebean")
 
 # Set path based on user
 setwd(paths[username])
