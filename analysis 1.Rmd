@@ -17,25 +17,36 @@ Alternative to knit: rmarkdown::render('analysis 1.rmd')
 
 library(arsenal)
 
-# Read datafile
+# Read datafile, Change ChiSq test to Fisher exact, compare median WTHratio instead of mean, change to row percent
 sub.data <- readRDS(file = file.choose())
+test <- tableby(ASSIGN ~ AGEGROUP + RACE_ETH + SIBIRTH + WTHRatio, cat.test = "fe", numeric.test = "kwt", simulate.p.value = TRUE, numeric.stats = "medianq1q3" , data= sub.data)
 
 table1 <- tableby(ASSIGN ~ 
-                    chisq(AGEGROUP, "countpct") +
-                    chisq(RACE_ETH, "countpct") +
-                    chisq(Smoke, "countpct", cat.simplify = FALSE) +
-                    chisq(SIPCOS, "countpct", cat.simplify = FALSE) +
-                    chisq(BMI_CAT, "countpct") + 
-                    chisq(FamHx, "countpct") +
+                    chisq(AGEGROUP, "countrowpct") +
+                    fe(AGEGROUP, simulate.p.value=TRUE ) +
+                    chisq(RACE_ETH, "countrowpct") +
+                    #fisher.test(RACE_ETH, )
+                    chisq(Smoke, "countrowpct", cat.simplify = FALSE) +
+                    #fisher.test(Smoke,) +
+                    chisq(SIPCOS, "countrowpct", cat.simplify = FALSE) +
+                    #fisher.test(SIPCOS,) +
+                    chisq(BMI_CAT, "countrowpct") + 
+                    #fisher.test(BMI_CAT) + 
+                    chisq(BMIGROUP, "countrowpct") +
+                    #fisher.test(BMIGROUP,) +
+                    chisq(FamHx, "countrowpct") +
+                    #fisher.test(FamHx, ) + 
                     kwt(SIBIRTH, "medianq1q3", digits = 1) + 
                     kwt(WaistCircAve, "medianq1q3", digits = 1) +
-                    anova(WTHRatio, "meansd", digits = 3) +
+                    kwt(WTHRatio, "medianq1q3", digits = 3) +
                     kwt(G000, "medianq1q3", digits = 0) + 
                     kwt(HBA1, "medianq1q3", digits = 1) + 
                     kwt(totalMETs, "medianq1q3", digits = 1) +
                     kwt(SOSBPA, "medianq1q3", digits = 0) +
                     kwt(SODBPA, "medianq1q3", digits = 0) +
-                    kwt(TRIG, "medianq1q3", digits = 0),
+                    kwt(TRIG, "medianq1q3", digits = 0) +
+                    chisq(DIABF, "countrowpct"),
+                  #fe(DIABF, "countrowpct", )
                     control = tableby.control(total = FALSE),
                     numeric.simplify=TRUE,
                     cat.simplify=TRUE,
@@ -49,16 +60,19 @@ tablabels <- list(
   FamHx = "Family History, N(%)",
   SIBIRTH = "Live Births, Median",
   BMI_CAT = "BMI Category (kg/m\U00B2), N(%)",
+  BMIGROUP = "BMI Group (kg/m\U00B2), N(%)",
   WaistCircAve = "Waist Circumference, Median",
-  WTHRatio = "Waist:Hip Ratio, Mean",
+  WTHRatio = "Waist:Hip Ratio, Median",
   G000 = "Fasting Glucose, Median",
   HBA1 = "Hemoglobin A1c, Median",
   totalMETs = "MET-hours/week, Median",
   SOSBPA = "Systolic BP (mm Hg), Median",
   SODBPA = "Diastolic BP (mm Hg), Median",
-  TRIG = "Triglyceride (mg/dL), Median"
+  TRIG = "Triglyceride (mg/dL), Median",
+  ASSIGN = "Treatment Arm, N(%)"
 )
 
+summary(test)
 summary(table1, 
         title = "Baseline Characteristics by Treatment Assignment",
         labelTranslations = tablabels,
@@ -91,4 +105,43 @@ ggplot(data = sub.data, aes(totalMETs)) +
   labs(x = "Total METs")
 ```
 
-End of document.
+```{r echo=FALSE, results="asis"}
+
+library(arsenal)
+# table of baseline characteristics by diabetes outcome, change mean to  median for WTH ratio, 
+
+table5 <- tableby(DIABF ~ 
+                    chisq(AGEGROUP, "countpct") +
+                    chisq(RACE_ETH, "countpct") +
+                    chisq(Smoke, "countpct", cat.simplify = FALSE) +
+                    chisq(SIPCOS, "countpct", cat.simplify = FALSE) +
+                    chisq(BMI_CAT, "countpct") + 
+                    chisq(BMIGROUP, "countpct") +
+                    chisq(FamHx, "countpct") +
+                    chisq(ASSIGN, "countpct") +
+                    kwt(SIBIRTH, "medianq1q3", digits = 1) + 
+                    kwt(WaistCircAve, "medianq1q3", digits = 1) +
+                    kwt(WTHRatio, "medianq1q3", digits = 3) +
+                    kwt(G000, "medianq1q3", digits = 0) + 
+                    kwt(HBA1, "medianq1q3", digits = 1) + 
+                    kwt(totalMETs, "medianq1q3", digits = 1) +
+                    kwt(SOSBPA, "medianq1q3", digits = 0) +
+                    kwt(SODBPA, "medianq1q3", digits = 0) +
+                    kwt(TRIG, "medianq1q3", digits = 0),
+                    
+                    control = tableby.control(total = FALSE),
+                    numeric.simplify=TRUE,
+                    cat.simplify=TRUE,
+                    data = sub.data)
+
+
+summary(table5, 
+        title = "Baseline Characteristics by Diabetes Outcome",
+        labelTranslations = tablabels,
+        digits.count = 0,
+        digits.pct = 1,
+        digits.p = 2)
+summary (sub.data$DIABF)
+```
+
+
