@@ -2,9 +2,11 @@
 title: "R Notebook"
 author: "Bernice Man"
 date: "September 13, 2019"
-output: 
+output:
   word_document:
-    reference_docx: "word-styles-reference-01.docx"
+    reference_docx: word-styles-reference-01.docx
+  html_document:
+    df_print: paged
 ---
 
 Analysis 2: Cox proportional hazards model for diabetes prediction in GDM 
@@ -13,7 +15,7 @@ Alternative to knit: rmarkdown::render('analysis 2.rmd')
 
 ##### Descriptives for Variables Scaled
 
-```{r echo=FALSE}
+```{r echo=TRUE}
 
 library(psych)
 library(survival)
@@ -33,8 +35,10 @@ sub.data <- readRDS(file = file.choose())
 sub.data$ASSIGN <- relevel(sub.data$ASSIGN, ref = "Placebo")
 sub.data$ASSIGN <- droplevels(sub.data$ASSIGN)
 
+
+
 # Variables to normalize
-varnorm <- c('AvgHeight', 'WTHRatio','G000','HBA1','logTRIG')
+varnorm <- c('AvgHeight', 'WTHRatio','G000','HBA1','logTRIG','WaistCircAve','totalMETs')
 zvarnorm <- paste0('z', varnorm)
 
 # Normalize and create new variable 'z' + old variable name, and add to data frame
@@ -42,8 +46,8 @@ sub.data[zvarnorm] <- lapply(sub.data[varnorm], scale)
 
 psych::describe(sub.data[, c(varnorm, zvarnorm)])
 
-# Number of subjects before and after selecting complete cases
-varselect <- c('ASSIGN','zAvgHeight','zWTHRatio','BMIGROUP','zG000','zHBA1','zlogTRIG')
+# Number of subjects before and after selecting complete cases, removed 'zAvgHeight',
+varselect <- c('ASSIGN','zWTHRatio','BMIGROUP','zG000','zHBA1','zlogTRIG')
 cat('Number of subjects:', nrow(sub.data))
 sub.data <- sub.data[complete.cases(sub.data[, varselect]), ]
 cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselect, ')')
@@ -51,7 +55,7 @@ cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselec
 
 ##### Table 2 Cox Proportional Hazards Model
 
-```{r echo=FALSE}
+```{r echo=TRUE}
 
 # Cox Proportional Hazard Model
 # DIABF of No = censored (0), Yes = diabetes (1)
@@ -66,12 +70,13 @@ varint <- c('ASSIGN*BMIGROUP')
 units(sub.data$DIABT) <- "Year"
 
 # Create CPH Model, DIABT is follow up time with right censored data, and DiabYes is event (1 = diabetes event)
+#Model developed from analysis of parous women with and without GDM, removed  'Height (mean), Std',
 m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
 m1form <- as.formula(paste("m1surv ~ ", paste(c(varselect, varint), collapse = "+")))
 
 m1 <-coxph(m1form, data=sub.data, ties='efron')
 m1tidy <- tidy(m1)
-m1tidy$term <- c('Lifestyle', 'Metformin', 'Height (mean), Std', 'Waist:Hip Ratio, Std',
+m1tidy$term <- c('Lifestyle', 'Metformin',  'Waist:Hip Ratio, Std',
                        'BMI 30-35', 'BMI 35+', 'Fasting Glucose, Std', 'HbA1c, Std', 'Triglycerides (ln), Std',
                        'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
                        'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
@@ -80,7 +85,7 @@ kable(m1tidy, digits=3)
 
 ##### Table 3 Covariates and Proportional Hazards Assumption
 
-```{r echo=FALSE}
+```{r echo=TRUE}
 # Check each covariate (proportional hazards assumption)
 res1 <- cox.zph(m1)
 res1
@@ -91,7 +96,7 @@ plot(res1)
 
 ##### Figure 1 Survival Plots
 
-```{r echo=FALSE}
+```{r echo=TRUE}
 
 # Create new data frame and set DiabYes to 0 (no diabetes) and DIABT to 3 (3 years)
 newdf <- sub.data
@@ -104,14 +109,25 @@ sub.data$survprob <- exp(-predict(m1, newdata=newdf, type="expected"))
 # Plot predicted probability by BMI graoup and treatment assignment
 ggplot(sub.data, aes(y=survprob, x=BMIGROUP, fill=ASSIGN)) +
      geom_boxplot() +
-     scale_y_continuous("Predicted Survival Probability at 3 years") +
-     scale_x_discrete("BMI Group") +
-     theme_bw()
+     scale_y_continuous("3-year Predicted Probability of Survival\n (No Diabetes)") +
+    
+  scale_x_discrete() +
+   labs(x= expression(paste("BMI group (kg/m"^{2},")"))) +
+     theme_bw() +
+ scale_fill_manual(breaks = c("Placebo", "Lifestyle", "Metformin"), 
+                          values=c("#BB1A58", "#CFCEE3", "#1C9DA9")) +
+  theme(text = element_text(size=13), panel.grid.minor = element_blank(),panel.grid.major = element_blank()) +
+theme(legend.title=element_blank()) + 
+  theme(axis.text = element_text(size= 11))
+
+
+ 
+
 ```
 
 ##### Figure 2 Observed Vs. Predicted Probability of Diabetes
 
-```{r echo=FALSE}
+```{r echo=TRUE}
 
 # Convert predicted probabilities to factor of deciles
 sub.data$diabprobf <- factor(floor((1-sub.data$survprob)*10),
@@ -137,7 +153,7 @@ ggplot(agg, aes(x=diabprobf, y=DiabYes)) +
 
 ##### Figure 3 Goodness of CPH Model Fit
 
-```{r echo=FALSE}
+```{r echo=TRUE}
 
 # Check proportional hazards assumption
 ggcoxdiagnostics(m1, type="schoenfeld")
@@ -151,7 +167,7 @@ ggcoxdiagnostics(m1, type="deviance")
 
 ##### Figure 4 Validation
 
-```{r echo=FALSE}
+```{r echo=TRUE}
 
 # References
 # https://socialsciences.mcmaster.ca/jfox/Books/Companion-1E/appendix-cox-regression.pdf
@@ -184,12 +200,12 @@ plot(cal, ylim = c(0,1))
 ```
 
 ##### k-fold cross validation of logistic regression
-
-```{r echo=FALSE}
+#added ASSIGN*BMIGROUP
+```{r echo=TRUE}
 
 # K-fold validation with logistic model
 train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
-m3 <- train(DIABF ~ ASSIGN + zWTHRatio + BMIGROUP + zG000 + zHBA1, 
+m3 <- train(DIABF ~ ASSIGN + zWTHRatio + BMIGROUP + zG000 + zHBA1 + zlogTRIG + ASSIGN*BMIGROUP, 
             data = sub.data, trControl = train_control, method = "glm", family = "binomial")
 
 # Show the final model
@@ -197,3 +213,660 @@ m3$finalModel
 ```
 
 
+```{r echo=TRUE}
+#Full model with 11 vars + interaction BMIGROUP*ASSIGN
+varselectfull <- c('AGEGROUP','RACE_ETH','ASSIGN','FamHx',
+                   'zWaistCircAve','zWTHRatio','BMIGROUP',
+                   'zG000','zHBA1', 'zlogTRIG','ztotalMETs' )
+cat('Number of subjects:', nrow(sub.data))
+sub.data <- sub.data[complete.cases(sub.data[, varselectfull]), ]
+cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselectfull, ')')
+m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
+m1formfull <- as.formula(paste("m1surv ~ ", paste(c(varselectfull, varint), collapse = "+")))
+
+#changed tidy to  exp for hazard ratios
+m1full <-coxph(m1formfull, data=sub.data, ties='efron')
+
+m1tidyfull <- tidy(m1full, exponentiate = TRUE, conf.int = TRUE, conf.level = 0.95)
+m1tidyfull$term <- c( '40-44','45-49', '50-54', '55-59','60+',
+                      'African American', 'Hispanic, of any race', 'All other', 
+                      'Lifestyle', 'Metformin','FamHx', 
+                       'Waist circumference,Std','Waist:Hip Ratio,Std','BMI 30-35', 'BMI 35+', 'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std','METS hr/week,Std',
+                      'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+                      'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+kable(m1tidyfull, digits=3)
+
+
+# Check for concordance (includes (1-c-statistic))
+concordance(m1surv ~ predict(m1full))
+
+# Use cph from rms package (should give similar results to coxph)
+m2full <- cph(formula = m1formfull, data = sub.data, x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+m2full
+
+
+# Validation with 10-fold cross validation (set seed for reproducibility)
+set.seed(1)
+v1full <- validate(m2full, method="crossvalidation", B = 10, dxy=T)
+v1full
+
+# C-statistic by Dxy
+# https://www.rdocumentation.org/packages/rms/versions/5.1-3.1/topics/validate.cph
+# Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+Dxy = v1full[rownames(v1full)=="Dxy", colnames(v1full)=="index.corrected"]
+orig_Dxy = v1full[rownames(v1full)=="Dxy", colnames(v1full)=="index.orig"]
+bias_corrected_c_index  <- (abs(Dxy)/2)+0.5
+orig_c_index <- (abs(orig_Dxy)/2)+0.5
+cat("Bias corrected c-index: ", bias_corrected_c_index)
+cat("Original c-index: ", orig_c_index)
+
+# 3-year probability estimates with calibrate
+cal <- calibrate(m2full, B=10, u=3)
+plot(cal, ylim = c(0,1))
+
+##### k-fold cross validation of logistic regression (not cox ph)
+
+# K-fold validation with logistic model
+train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
+m3full <- train(DIABF ~ AGEGROUP + RACE_ETH + ASSIGN + FamHx + ztotalMETs + zWTHRatio + BMIGROUP + zG000 + zHBA1 +zlogTRIG + zWaistCircAve + BMIGROUP*ASSIGN,
+            data = sub.data, trControl = train_control, method = "glm", family = "binomial")
+
+# Show the final model
+m3full$finalModel
+```
+
+```{r echo=TRUE}
+#Reduced model- 8 clinical variable with both WaistCircAve and WTHRatio + interaction BMIGROUP*ASSIGN
+varselectRed1 <- c( 'RACE_ETH', 'ASSIGN','zWaistCircAve', 'zWTHRatio', 'BMIGROUP','zG000','zHBA1','zlogTRIG')
+cat('Number of subjects:', nrow(sub.data))
+sub.data <- sub.data[complete.cases(sub.data[, varselectRed1]), ]
+cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselectRed1, ')')
+m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
+m1formRed1 <- as.formula(paste("m1surv ~ ", paste(c(varselectRed1, varint), collapse = "+")))
+
+m1Red1<-coxph(m1formRed1, data=sub.data, ties='efron')
+m1tidyRed1 <- tidy(m1Red1)
+m1tidyRed1$term <- c(  'African American', 'Hispanic, of any race', 'All other',
+                      'Lifestyle', 'Metformin',
+                      'Waist Circumference Ratio,Std',
+                      'Waist Hip Ratio,Std',
+                      'BMI 30-35', 'BMI 35+', 
+                      'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std',
+                      'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+                      'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+kable(m1tidyRed1, digits=3)
+```
+
+```{r echo=TRUE}
+# Check for concordance (includes (1-c-statistic))
+concordance(m1surv ~ predict(m1Red1))
+
+# Use cph from rms package (should give similar results to coxph)
+m2Red1 <- cph(formula = m1formRed1, data = sub.data, x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+m2Red1
+
+# Validation with 10-fold cross validation (set seed for reproducibility)
+set.seed(1)
+v1Red1<- validate(m2Red1, method="crossvalidation", B = 10, dxy=T)
+v1Red1
+
+# C-statistic by Dxy
+# https://www.rdocumentation.org/packages/rms/versions/5.1-3.1/topics/validate.cph
+# Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+Dxy = v1Red1[rownames(v1Red1)=="Dxy", colnames(v1Red1)=="index.corrected"]
+orig_Dxy = v1Red1[rownames(v1Red1)=="Dxy", colnames(v1Red1)=="index.orig"]
+bias_corrected_c_index  <- (abs(Dxy)/2)+0.5
+orig_c_index <- (abs(orig_Dxy)/2)+0.5
+cat("Bias corrected c-index: ", bias_corrected_c_index)
+cat("Original c-index: ", orig_c_index)
+
+# 3-year probability estimates with calibrate
+cal <- calibrate(m2Red1, B=10, u=3)
+plot(cal, ylim = c(0,1))
+
+##### k-fold cross validation of logistic regression
+
+# K-fold validation with logistic model (not cox ph)
+train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
+m3Red1 <- train(DIABF ~ RACE_ETH + ASSIGN + zWaistCircAve + zWTHRatio + BMIGROUP + zG000 + zHBA1 + zlogTRIG + BMIGROUP*ASSIGN,
+                data = sub.data, trControl = train_control, method = "glm", family = "binomial")
+
+# Show the final model
+m3Red1$finalModel
+```
+
+```{r echo=TRUE}
+
+#Reduced model- 7 var with Waist Circ only (omit WTHRatio) + interaction BMIGROUP*ASSIGN, 
+varselectRedWc <- c( 'RACE_ETH', 'ASSIGN','zWaistCircAve', 'BMIGROUP','zG000','zHBA1','zlogTRIG')
+cat('Number of subjects:', nrow(sub.data))
+sub.data <- sub.data[complete.cases(sub.data[, varselectRedWc]), ]
+cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselectRedWc, ')')
+m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
+m1formRedWc <- as.formula(paste("m1surv ~ ", paste(c(varselectRedWc, varint), collapse = "+")))
+
+m1RedWc<-coxph(m1formRedWc, data=sub.data, ties='efron')
+m1tidyRedWc <- tidy(m1RedWc)
+m1tidyRedWc$term <- c(  'African American', 'Hispanic, of any race', 'All other',
+                      'Lifestyle', 'Metformin',
+                      'Waist Circumference Ratio,Std',
+                      'BMI 30-35', 'BMI 35+', 
+                      'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std',
+                      'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+                      'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+kable(m1tidyRedWc, digits=3)
+
+
+```
+
+```{r echo=TRUE}
+
+# Check for concordance (includes (1-c-statistic))
+concordance(m1surv ~ predict(m1RedWc))
+
+# Use cph from rms package (should give similar results to coxph)
+m2RedWc <- cph(formula = m1formRedWc, data = sub.data, x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+m2RedWc
+
+# Validation with 10-fold cross validation (set seed for reproducibility)
+set.seed(1)
+v1RedWc<- validate(m2RedWc, method="crossvalidation", B = 10, dxy=T)
+v1RedWc
+
+# C-statistic by Dxy
+# https://www.rdocumentation.org/packages/rms/versions/5.1-3.1/topics/validate.cph
+# Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+Dxy = v1RedWc[rownames(v1RedWc)=="Dxy", colnames(v1RedWc)=="index.corrected"]
+orig_Dxy = v1RedWc[rownames(v1RedWc)=="Dxy", colnames(v1RedWc)=="index.orig"]
+bias_corrected_c_index  <- (abs(Dxy)/2)+0.5
+orig_c_index <- (abs(orig_Dxy)/2)+0.5
+cat("Bias corrected c-index: ", bias_corrected_c_index)
+cat("Original c-index: ", orig_c_index)
+
+# 3-year probability estimates with calibrate
+cal <- calibrate(m2RedWc, B=10, u=3)
+plot(cal, ylim = c(0,1))
+
+##### k-fold cross validation of logistic regression (not cox ph)
+
+train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
+m3RedWc <- train(DIABF ~ RACE_ETH + ASSIGN + zWaistCircAve + BMIGROUP + zG000 + zHBA1 + zlogTRIG + BMIGROUP*ASSIGN,
+               data = sub.data, trControl = train_control, method = "glm", family = "binomial")
+
+# Show the final model
+m3RedWc$finalModel
+```
+
+```{r echo=TRUE}
+
+#without WaistCircAve and WTHRatio, 6 var and int
+varselectRed2 <- c( 'RACE_ETH', 'ASSIGN', 'BMIGROUP','zG000','zHBA1','zlogTRIG')
+cat('Number of subjects:', nrow(sub.data))
+sub.data <- sub.data[complete.cases(sub.data[, varselectRed2]), ]
+cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselectRed2, ')')
+m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
+m1formRed2 <- as.formula(paste("m1surv ~ ", paste(c(varselectRed2, varint), collapse = "+")))
+
+# Changed tidy to exp for hazard ratios
+m1Red2<-coxph(m1formRed2, data=sub.data, ties='efron')
+m1tidyRed2 <- tidy(m1Red2, exponentiate = TRUE, conf.int = TRUE, conf.level = 0.95)
+m1tidyRed2$term <- c(  'African American', 'Hispanic, of any race', 'All other',
+                      'Lifestyle', 'Metformin',
+                      'BMI 30-35', 'BMI 35+', 
+                      'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std',
+                      'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+                      'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+kable(m1tidyRed2, digits=3)
+
+
+# Check for concordance (includes (1-c-statistic))
+concordance(m1surv ~ predict(m1Red2))
+
+# Use cph from rms package (should give similar results to coxph)
+m2Red2 <- cph(formula = m1formRed2, data = sub.data, x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+m2Red2
+
+# Validation with 10-fold cross validation (set seed for reproducibility)
+set.seed(1)
+v1Red2<- validate(m2Red2, method="crossvalidation", B = 10, dxy=T)
+v1Red2
+
+# C-statistic by Dxy
+# https://www.rdocumentation.org/packages/rms/versions/5.1-3.1/topics/validate.cph
+# Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+Dxy = v1Red2[rownames(v1Red2)=="Dxy", colnames(v1Red2)=="index.corrected"]
+orig_Dxy = v1Red2[rownames(v1Red2)=="Dxy", colnames(v1Red2)=="index.orig"]
+bias_corrected_c_index  <- (abs(Dxy)/2)+0.5
+orig_c_index <- (abs(orig_Dxy)/2)+0.5
+cat("Bias corrected c-index: ", bias_corrected_c_index)
+cat("Original c-index: ", orig_c_index)
+
+# 3-year probability estimates with calibrate
+cal <- calibrate(m2Red2, B=10, u=3)
+plot(cal, ylim = c(0,1))
+
+
+
+```
+
+```{r echo=TRUE}
+
+
+
+
+```
+
+```{r echo=TRUE}
+#Reduced model- 7 var with WTHRatio (omit WaistCircAve) + interaction BMIGROUP*ASSIGN,
+varselectRedWTH <- c( 'RACE_ETH', 'ASSIGN','zWTHRatio', 'BMIGROUP','zG000','zHBA1','zlogTRIG')
+cat('Number of subjects:', nrow(sub.data))
+sub.data <- sub.data[complete.cases(sub.data[, varselectRedWTH]), ]
+m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
+m1formRedWTH <- as.formula(paste("m1surv ~ ", paste(c(varselectRedWTH, varint), collapse = "+")))
+
+m1RedWTH<-coxph(m1formRedWTH, data=sub.data, ties='efron')
+m1tidyRedWTH <- tidy(m1RedWTH)
+m1tidyRedWTH$term <- c(  'African American', 'Hispanic, of any race', 'All other',
+                       'Lifestyle', 'Metformin',
+                       'Waist Hip Ratio,Std',
+                       'BMI 30-35', 'BMI 35+', 
+                       'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std',
+                       'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+                       'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+kable(m1tidyRedWTH, digits=3)
+
+
+# References
+# https://socialsciences.mcmaster.ca/jfox/Books/Companion-1E/appendix-cox-regression.pdf
+
+# Check for concordance (includes (1-c-statistic))
+concordance(m1surv ~ predict(m1RedWTH))
+
+# Use cph from rms package (should give similar results to coxph)
+m2RedWTH<- cph(formula = m1formRedWTH, data = sub.data, x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+m2RedWTH
+
+# Validation with 10-fold cross validation (set seed for reproducibility)
+set.seed(1)
+v1RedWTH<- validate(m2RedWTH, method="crossvalidation", B = 10, dxy=T)
+v1RedWTH
+
+# C-statistic by Dxy
+# https://www.rdocumentation.org/packages/rms/versions/5.1-3.1/topics/validate.cph
+# Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+Dxy = v1RedWTH[rownames(v1RedWTH)=="Dxy", colnames(v1RedWTH)=="index.corrected"]
+orig_Dxy = v1RedWTH[rownames(v1RedWTH)=="Dxy", colnames(v1RedWTH)=="index.orig"]
+bias_corrected_c_index  <- (abs(Dxy)/2)+0.5
+orig_c_index <- (abs(orig_Dxy)/2)+0.5
+cat("Bias corrected c-index: ", bias_corrected_c_index)
+cat("Original c-index: ", orig_c_index)
+
+# 3-year probability estimates with calibrate
+cal <- calibrate(m2RedWTH, B=10, u=3)
+plot(cal, ylim = c(0,1))
+
+##### k-fold cross validation of logistic regression
+
+# K-fold validation with logistic model
+train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
+m3RedWTH <- train(DIABF ~ RACE_ETH + ASSIGN + zWTHRatio + BMIGROUP + zG000 + zHBA1 + zlogTRIG + BMIGROUP*ASSIGN,
+                data = sub.data, trControl = train_control, method = "glm", family = "binomial")
+
+# Show the final model
+m3RedWTH$finalModel
+```
+
+```{r echo=TRUE}
+#Bare model using only HBA1c, fasting glucose, + interactionBMIGROUP*ASSIGN
+
+varselectBare <- c('ASSIGN','BMIGROUP','zG000','zHBA1')
+
+cat('Number of subjects:', nrow(sub.data))
+sub.data <- sub.data[complete.cases(sub.data[,varselectBare]), ]
+cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselectBare, ')')
+m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
+m1formBare <- as.formula(paste("m1surv ~ ", paste(c(varselectBare,varint), collapse = "+")))
+
+# Changed tidy to exp for hazard ratios
+m1Bare<-coxph(m1formBare, data=sub.data, ties='efron')
+
+#m1Bare <- coxph(Surv(DIABT, DiabYes) ~ 
+#                  ASSIGN + BMIGROUP + zG000 + zHBA1 + ASSIGN * BMIGROUP, data = sub.data)
+#ggsurvplot(survfit(m1Bare, data = sub.data))
+
+m1tidyBare <- tidy(m1Bare, exponentiate = TRUE, conf.int = TRUE, conf.level = 0.95)
+m1tidyBare$term <- c( 'Lifestyle', 'Metformin',
+                      'BMI 30-35', 'BMI 35+', 
+                   'Fasting Glucose, Std','HbA1c, Std',
+                      'Lifestyle * BMI 30-35', 'Metformin *BMI 30-35', 
+                      'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+kable(m1tidyBare, digits=3)
+
+# Estimating survival for reference group  for model equation
+
+newdataBare <-with(sub.data, 
+               data.frame(ASSIGN = c("Placebo", "Lifestyle", "Metformin"), 
+                          BMIGROUP = factor("<30", levels = levels(sub.data$BMIGROUP)), 
+                          zG000 = rep(mean(zG000, na.rm = TRUE), 3 ), 
+                          zHBA1 = rep(mean(zHBA1, na.rm = TRUE), 3 )
+                        )
+)
+fit <- survfit(m1Bare, newdata = newdataBare, data = sub.data)
+summary(fit)
+ggsurvplot(fit)
+
+```
+
+```{r echo=TRUE}
+
+# Check for concordance (includes (1-c-statistic))
+concordance(m1surv ~ predict(m1Bare))
+
+# Use cph from rms package (should give similar results to coxph)
+m2Bare <- cph(formula = m1formBare, data = sub.data, x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+m2Bare
+
+# Validation with 10-fold cross validation (set seed for reproducibility)
+set.seed(1)
+v1Bare<- validate(m2Bare, method="crossvalidation", B = 10, dxy=T)
+v1Bare
+
+# C-statistic by Dxy
+
+# Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+Dxy = v1Bare[rownames(v1Bare)=="Dxy", colnames(v1Bare)=="index.corrected"]
+orig_Dxy = v1Bare[rownames(v1Bare)=="Dxy", colnames(v1Bare)=="index.orig"]
+bias_corrected_c_index  <- (abs(Dxy)/2)+0.5
+orig_c_index <- (abs(orig_Dxy)/2)+0.5
+cat("Bias corrected c-index: ", bias_corrected_c_index)
+cat("Original c-index: ", orig_c_index)
+
+# 3-year probability estimates with calibrate
+cal <- calibrate(m2Bare, B=10, u=3)
+plot(cal, ylim = c(0,1))
+
+##### k-fold cross validation of logistic regression
+
+# K-fold validation with logistic model
+train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
+m3Bare <- train(DIABF ~  ASSIGN + BMIGROUP + zG000 + zHBA1 +ASSIGN*BMIGROUP, 
+                data = sub.data, trControl = train_control, method = "glm", family = "binomial")
+
+# Show the final model
+m3Bare$finalModel
+```
+
+```{r echo=TRUE}
+#Reduced model- 7 var with both WaistCircAve and WTHRatio (omit race/eth ) + interaction BMIGROUP*ASSIGN
+varselectRed3 <- c('ASSIGN', 'zWaistCircAve','WTHRatio', 'BMIGROUP','zG000','zHBA1','zlogTRIG')
+cat('Number of subjects:', nrow(sub.data))
+sub.data <- sub.data[complete.cases(sub.data[, varselectRed3]), ]
+cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselectRed3, ')')
+m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
+m1formRed3 <- as.formula(paste("m1surv ~ ", paste(c(varselectRed3, varint), collapse = "+")))
+
+m1Red3<-coxph(m1formRed3, data=sub.data, ties='efron')
+m1tidyRed3 <- tidy(m1Red3)
+m1tidyRed3$term <- c( 
+                      'Lifestyle', 'Metformin',
+                      'Waist Circumference Ratio,Std',
+                       'Waist Hip Ratio,Std',
+                      'BMI 30-35', 'BMI 35+', 
+                      'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std',
+                      'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+                      'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+kable(m1tidyRed3, digits=3)
+
+``` 
+
+```{r=TRUE}
+
+# Check for concordance (includes (1-c-statistic))
+concordance(m1surv ~ predict(m1Red3))
+
+# Use cph from rms package (should give similar results to coxph)
+m2Red3 <- cph(formula = m1formRed3, data = sub.data, x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+m2Red3
+
+# Validation with 10-fold cross validation (set seed for reproducibility)
+set.seed(1)
+v1Red3<- validate(m2Red3, method="crossvalidation", B = 10, dxy=T)
+v1Red3
+
+# C-statistic by Dxy
+# https://www.rdocumentation.org/packages/rms/versions/5.1-3.1/topics/validate.cph
+# Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+Dxy = v1Red3[rownames(v1Red3)=="Dxy", colnames(v1Red3)=="index.corrected"]
+orig_Dxy = v1Red3[rownames(v1Red3)=="Dxy", colnames(v1Red3)=="index.orig"]
+bias_corrected_c_index  <- (abs(Dxy)/2)+0.5
+orig_c_index <- (abs(orig_Dxy)/2)+0.5
+cat("Bias corrected c-index: ", bias_corrected_c_index)
+cat("Original c-index: ", orig_c_index)
+
+# 3-year probability estimates with calibrate
+cal <- calibrate(m2Red3, B=10, u=3)
+plot(cal, ylim = c(0,1))
+
+##### k-fold cross validation of logistic regression
+
+# K-fold validation with logistic model
+
+train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
+m3Red3 <- train(DIABF ~  ASSIGN + zWaistCircAve + zWTHRatio + BMIGROUP + zG000 + zHBA1 + zlogTRIG + BMIGROUP*ASSIGN,
+               data = sub.data, trControl = train_control, method = "glm", family = "binomial")
+
+# Show the final model
+m3Red3$finalModel
+```
+
+```{r echo=TRUE}
+
+#Reduced model- 6 var Waist Circ only (omit race/eth and WTHRAtio) with interaction BMIGROUP*ASSIGN, 
+varselectRed3WC <- c('ASSIGN','zWaistCircAve', 'BMIGROUP','zG000','zHBA1','zlogTRIG')
+cat('Number of subjects:', nrow(sub.data))
+sub.data <- sub.data[complete.cases(sub.data[, varselectRed3WC]), ]
+cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselectRed3WC, ')')
+m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
+m1formRed3WC <- as.formula(paste("m1surv ~ ", paste(c(varselectRed3WC, varint), collapse = "+")))
+
+m1Red3WC<-coxph(m1formRed3WC, data=sub.data, ties='efron')
+m1tidyRed3WC <- tidy(m1Red3WC)
+m1tidyRed3WC$term <- c( 
+                      'Lifestyle', 'Metformin',
+                      'Waist Circumference Ratio,Std',
+                      'BMI 30-35', 'BMI 35+', 
+                      'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std',
+                      'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+                      'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+kable(m1tidyRed3WC, digits=3)
+
+
+# References
+# https://socialsciences.mcmaster.ca/jfox/Books/Companion-1E/appendix-cox-regression.pdf
+
+# Check for concordance (includes (1-c-statistic))
+concordance(m1surv ~ predict(m1Red3WC))
+
+# Use cph from rms package (should give similar results to coxph)
+m2Red3WC<- cph(formula = m1formRed3WC, data = sub.data, x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+m2Red3WC
+
+# Validation with 10-fold cross validation (set seed for reproducibility)
+set.seed(1)
+v1Red3WC<- validate(m2Red3WC, method="crossvalidation", B = 10, dxy=T)
+v1Red3WC
+
+# C-statistic by Dxy
+# https://www.rdocumentation.org/packages/rms/versions/5.1-3.1/topics/validate.cph
+# Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+Dxy = v1Red3WC[rownames(v1Red3WC)=="Dxy", colnames(v1Red3WC)=="index.corrected"]
+orig_Dxy = v1Red3WC[rownames(v1Red3WC)=="Dxy", colnames(v1Red3WC)=="index.orig"]
+bias_corrected_c_index  <- (abs(Dxy)/2)+0.5
+orig_c_index <- (abs(orig_Dxy)/2)+0.5
+cat("Bias corrected c-index: ", bias_corrected_c_index)
+cat("Original c-index: ", orig_c_index)
+
+# 3-year probability estimates with calibrate
+cal <- calibrate(m2Red3WC, B=10, u=3)
+plot(cal, ylim = c(0,1))
+
+##### k-fold cross validation of logistic regression
+
+# K-fold validation with logistic model
+
+train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
+m3Red3WC <- train(DIABF ~  ASSIGN + zWaistCircAve + BMIGROUP + zG000 + zHBA1 + zlogTRIG + BMIGROUP*ASSIGN,
+               data = sub.data, trControl = train_control, method = "glm", family = "binomial")
+
+# Show the final model
+m3Red3WC$finalModel
+
+# Higher BMI groups with neg coefficient? 
+```
+
+```{r echo=TRUE}
+
+#Reduced model- 6 var WTHRatio only (omit race/eth and WaistCircAve) with interaction BMIGROUP*ASSIGN, 
+varselectRed3WTH <- c('ASSIGN','zWTHRatio', 'BMIGROUP','zG000','zHBA1','zlogTRIG')
+cat('Number of subjects:', nrow(sub.data))
+sub.data <- sub.data[complete.cases(sub.data[, varselectRed3WTH]), ]
+cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselectRed3WTH, ')')
+m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
+m1formRed3WTH <- as.formula(paste("m1surv ~ ", paste(c(varselectRed3WTH,varint), collapse = "+")))
+
+m1Red3WTH<-coxph(m1formRed3WTH, data=sub.data, ties='efron')
+m1tidyRed3WTH <- tidy(m1Red3WTH)
+m1tidyRed3WTH$term <- c( 
+                      'Lifestyle', 'Metformin',
+                      'Waist Hip Ratio,Std',
+                      'BMI 30-35', 'BMI 35+', 
+                      'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std',
+                      'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+                      'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+kable(m1tidyRed3WTH, digits=3)
+
+
+# References
+# https://socialsciences.mcmaster.ca/jfox/Books/Companion-1E/appendix-cox-regression.pdf
+
+# Check for concordance (includes (1-c-statistic))
+concordance(m1surv ~ predict(m1Red3WTH))
+
+# Use cph from rms package (should give similar results to coxph)
+m2Red3WTH <- cph(formula = m1formRed3WTH, data = sub.data, x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+m2Red3WTH
+
+# Validation with 10-fold cross validation (set seed for reproducibility)
+set.seed(1)
+v1Red3WTH<- validate(m2Red3WTH, method="crossvalidation", B = 10, dxy=T)
+v1Red3WTH
+
+# C-statistic by Dxy
+# https://www.rdocumentation.org/packages/rms/versions/5.1-3.1/topics/validate.cph
+# Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+Dxy = v1Red3WTH[rownames(v1Red3WTH)=="Dxy", colnames(v1Red3WTH)=="index.corrected"]
+orig_Dxy = v1Red3WTH[rownames(v1Red3WTH)=="Dxy", colnames(v1Red3WTH)=="index.orig"]
+bias_corrected_c_index  <- (abs(Dxy)/2)+0.5
+orig_c_index <- (abs(orig_Dxy)/2)+0.5
+cat("Bias corrected c-index: ", bias_corrected_c_index)
+cat("Original c-index: ", orig_c_index)
+
+# 3-year probability estimates with calibrate
+cal <- calibrate(m2Red3WTH, B=10, u=3)
+plot(cal, ylim = c(0,1))
+
+##### k-fold cross validation of logistic regression
+
+# K-fold validation with logistic model
+
+train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
+m3Red3WTH <- train(DIABF ~  ASSIGN + zWTHRatio + BMIGROUP + zG000 + zHBA1 + zlogTRIG + BMIGROUP*ASSIGN, 
+               data = sub.data, trControl = train_control, method = "glm", family = "binomial")
+
+# Show the final model
+m3Red3WTH$finalModel
+```
+
+```{r echo=TRUE}
+
+#Reduced model- 6 var WTHRatio only (omit race/eth and WaistCircAve) WITHOUT interaction BMIGROUP*ASSIGN, 
+varselectRed3WTHN <- c('ASSIGN','zWTHRatio', 'BMIGROUP','zG000','zHBA1','zlogTRIG')
+cat('Number of subjects:', nrow(sub.data))
+sub.data <- sub.data[complete.cases(sub.data[, varselectRed3WTHN]), ]
+cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselectRed3WTH, ')')
+m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
+m1formRed3WTHN <- as.formula(paste("m1surv ~ ", paste(c(varselectRed3WTHN), collapse = "+")))
+
+m1Red3WTHN<-coxph(m1formRed3WTHN, data=sub.data, ties='efron')
+m1tidyRed3WTHN <- tidy(m1Red3WTHN)
+m1tidyRed3WTHN$term <- c(
+                      'Lifestyle', 'Metformin',
+                      'Waist Hip Ratio,Std',
+                      'BMI 30-35', 'BMI 35+', 
+                      'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std')
+kable(m1tidyRed3WTHN, digits=3)
+
+
+# References
+# https://socialsciences.mcmaster.ca/jfox/Books/Companion-1E/appendix-cox-regression.pdf
+
+# Check for concordance (includes (1-c-statistic))
+concordance(m1surv ~ predict(m1Red3WTHN))
+
+# Use cph from rms package (should give similar results to coxph)
+m2Red3WTHN <- cph(formula = m1formRed3WTHN, data = sub.data, x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+m2Red3WTHN
+
+# Validation with 10-fold cross validation (set seed for reproducibility)
+set.seed(1)
+v1Red3WTHN<- validate(m2Red3WTHN, method="crossvalidation", B = 10, dxy=T)
+v1Red3WTHN
+
+# C-statistic by Dxy
+# https://www.rdocumentation.org/packages/rms/versions/5.1-3.1/topics/validate.cph
+# Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+Dxy = v1Red3WTHN[rownames(v1Red3WTHN)=="Dxy", colnames(v1Red3WTHN)=="index.corrected"]
+orig_Dxy = v1Red3WTHN[rownames(v1Red3WTHN)=="Dxy", colnames(v1Red3WTHN)=="index.orig"]
+bias_corrected_c_index  <- (abs(Dxy)/2)+0.5
+orig_c_index <- (abs(orig_Dxy)/2)+0.5
+cat("Bias corrected c-index: ", bias_corrected_c_index)
+cat("Original c-index: ", orig_c_index)
+
+# 3-year probability estimates with calibrate
+cal <- calibrate(m2Red3WTHN, B=10, u=3)
+plot(cal, ylim = c(0,1))
+
+##### k-fold cross validation of logistic regression
+
+# K-fold validation with logistic model
+
+train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
+m3Red3WTHN <- train(DIABF ~  ASSIGN + zWTHRatio + BMIGROUP + zG000 + zHBA1 + zlogTRIG,
+               data = sub.data, trControl = train_control, method = "glm", family = "binomial")
+
+# Show the final model
+m3Red3WTHN$finalModel
+
+```
+
+
+```{r echo=TRUE}
+#comparisons of nested models
+
+rms::lrtest(m2full,m2Bare)
+
+rms::lrtest(m2full,m2Red2)
+rms::lrtest(m2Red1,m2RedWc)
+rms::lrtest(m2Red1, m2RedWTH)
+
+rms::lrtest(m2RedWc, m2Red2)
+rms::lrtest(m2full, m2RedWc)
+rms::lrtest(m2RedWc,m2Bare)
+rms::lrtest(m2RedWTH, m2Red2)
+rms::lrtest( m2RedWTH,m2Bare)
+
+
+rms::lrtest( m2Red2,m2Bare)
+
+#The lrtest function does likelihood ratio tests for two nested models, from fits that have stats components with "Model L.R." values. For models such as psm, survreg, ols, lm which have scale parameters, it is assumed that scale parameter for the smaller model is fixed at the estimate from the larger model (see the example). in rms package
+```
