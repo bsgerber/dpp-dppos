@@ -4,7 +4,7 @@
 # Bernice Man's DPP GDM Analysis (Prediction Model)
 #
 # Started 8/27/19
-# Revised 9/27/19
+# Revised 10/22/19
 #
 # Description: 
 # Develop a prediction model for women with gestational diabetes
@@ -60,6 +60,17 @@ events <- read.sas7bdat(paste0(paths1[username], paths3[username], "events.sas7b
 
 activities <- read.csv("MAQactivities with Updated METs.csv")
 
+###Bernice's new computer Feb 22,2021
+S03 <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Form_Data/Data/s03.sas7bdat")
+S05 <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Form_Data/Data/s05.sas7bdat")
+Q03 <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Form_Data/Data/q03.sas7bdat")
+
+basedata <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Non-Form_Data/Data/basedata.sas7bdat")
+lab <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Non-Form_Data/Data/lab.sas7bdat")
+events <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Non-Form_Data/Data/events.sas7bdat")
+
+activities <- read.csv("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/MAQactivities with Updated METs.csv")
+
 # Select data of interest for S03, S05 (specify variables)
 # Use "RUN" visit for Q03 physical activity data and lab data
 # Determined by Notes/variables DPP 8-27-2019.docx
@@ -68,7 +79,7 @@ S03.sel <- S03 %>%
   select(c("RELEASE_ID", "VISIT", "SODIAB", "SOETHN", "SOHGHT1", "SOHGHT2", 
            "SOHGHT3", "SOSBPA", "SODBPA", "SOBMI", "SOLFAST", "SOL2HR", "SOPRTN", "SOHSP"))
 S05.sel <- S05 %>%
-  select(c("RELEASE_ID", "VISIT", "SIBIRTH", "SIMDIAB", "SIFDIAB", "SI100CG", "SISMOK", "SIPCOS", "SIWSTC1",
+  select(c("RELEASE_ID", "VISIT", "SIBIRTH", "SIMDIAB", "SIFDIAB", "SI100CG", "SISMOK","SIPRGEV",  "SIPCOS", "SIWSTC1",
            "SIWSTC2", "SIWSTC3", "SIHIP1", "SIHIP2", "SIHIP3"))
 Q03.sel <- Q03 %>%
   filter(VISIT == "RUN")
@@ -162,13 +173,15 @@ main.data <- main.data %>%
 # Variables to change to factors: "SEX", "SODIAB", "AGEGROUP", "RACE_ETH", "SOETHN", "SIMDIAB", "SIFDIAB",
 #               "SI100CG", "SISMOK", "SIPCOS", "SOBMI", "BMI_CAT", "BMIGROUP", "SOPRTN", "DIABF",
 #               "DIABV", "FASTHYPF", "SOHSP"
-
+# compress AGEGROUP to 4 levels
 main.data$SEX <- factor(main.data$SEX,
                         labels = c("Male", "Female"))
 main.data$SODIAB <- factor(main.data$SODIAB,
                            labels = c("No", "Only during pregnancy", "Yes, borderline", "Yes", NA))
+#main.data$AGEGROUP <- factor(main.data$AGEGROUP,
+#                          labels = c("<40", "40-44", "45-49", "50-54", "55-59", "60+", "60+"))
 main.data$AGEGROUP <- factor(main.data$AGEGROUP,
-                             labels = c("<40", "40-44", "45-49", "50-54", "55-59", "60-64", "65+"))
+                             labels = c("<40", "40-44", "45-49", "50+", "50+", "50+", "50+"))
 main.data$RACE_ETH <- factor(main.data$RACE_ETH,
                              labels = c("Caucasian", "African American", "Hispanic, of any race", "All other"))
 main.data$SOETHN <- factor(main.data$SOETHN, 
@@ -189,7 +202,7 @@ main.data$SOBMI <- factor(main.data$SOBMI, levels = 1:2,
                           labels = c("Yes", "No"))
 main.data$BMI_CAT <- factor(main.data$BMI_CAT, 
                             labels = c("<26", "26 to <28", "28 to <30", "30 to <32", "32 to <34", "34 to <36", 
-                            "36 to <38", "38 to <40", "40 to <42", "42+"))
+                                       "36 to <38", "38 to <40", "40 to <42", "42+"))
 main.data$BMIGROUP <- factor(main.data$BMIGROUP,
                              labels = c("<30", "30 to <35", "35+"))
 main.data$SOPRTN <- factor(main.data$SOPRTN, levels = 1:6,
@@ -208,7 +221,8 @@ main.data$SOHSP <- factor(main.data$SOHSP,
 # Recode additional variables
 #######################################
 
-# Create new ethnicity variable
+# Create new ethnicity variable- will use RACE_ETH
+# Remove?
 
 main.data[which(main.data$RACE_ETH == "Caucasian"), "Ethnic"] <- "Caucasian"
 main.data[which(main.data$RACE_ETH == "African American"), "Ethnic"] <- "African American"
@@ -246,6 +260,7 @@ main.data$Smoke <- main.data$SISMOK
 levels(main.data$Smoke) <- c(levels(main.data$Smoke), "<= 100 cig lifetime")
 main.data$Smoke[is.na(main.data$Smoke)] <- "<= 100 cig lifetime"
 
+
 #######################################
 # Select population of interest
 #######################################
@@ -255,25 +270,39 @@ table(duplicated(main.data$RELEASE_ID))
 
 cat("Total Number Subjects: ", nrow(main.data))
 
+# See how many by SEX variable
+table(main.data$SEX)
+
 # Subset data to population of interest
 sub.data <- main.data %>%
   filter(SEX == "Female")
-
 cat("Subjects women: ", nrow(sub.data))
+
+table(main.data$SIPRGEV)
+# no of women with at least 1  birth -
+table(main.data$SIBIRTH >0)
+
+
+sub.data <- sub.data %>%
+  filter(SIBIRTH > 0)
+cat("Subjects women, births> 0: ", nrow(sub.data))
+
+#see how many prior DM status ("ever told you had a high sugar or diabetes")
+table(sub.data$SODIAB)
 
 sub.data <- sub.data %>%
   filter(SODIAB == "Only during pregnancy")
 
-cat("Subjects women, DM during pregnancy: ", nrow(sub.data))
+cat("Subjects women,  births>0, DM during pregnancy: ", nrow(sub.data))
 
-sub.data <- sub.data %>%
-  filter(SIBIRTH > 0)
-
-cat("Subjects women, DM during pregnancy, births>0: ", nrow(sub.data))
+#  see ASSIGN among women births>0, DMduring pregnancy
+table(sub.data$ASSIGN)
 
 sub.data <- sub.data %>%
   filter(ASSIGN != "Troglitazone")
 
+#drop troglitazone from factor ASSIGN 
+sub.data$ASSIGN <- droplevels(sub.data$ASSIGN, "Troglitazone")
 cat("Subjects women, DM during pregnancy, births>0, not on Troglitazone: ", nrow(sub.data))
 
 #######################################
@@ -282,3 +311,66 @@ cat("Subjects women, DM during pregnancy, births>0, not on Troglitazone: ", nrow
 
 filename <- paste0(format(Sys.time(), '%Y%m%d_%H%M%S_'), 'dpp_gdm_data.Rda')
 saveRDS(sub.data, file = filename)
+
+
+########################################
+#Correlations
+library(ggplot2)
+#correlation and plot:FBG and A1c, both continuous
+cor.test(sub.data$G000, sub.data$HBA1, method = "pearson")
+ggplot(sub.data, aes(G000, HBA1)) + 
+  geom_point() + 
+  labs( x = "fasting glucose", y = "hemoglobin a1c")
+
+#correlation and plot: waist circuference and WTH ratio, both continuous
+cor.test(sub.data$WaistCircAve, sub.data$WTHRatio, method = "pearson")
+ggplot(sub.data, aes(WaistCircAve, WTHRatio)) + 
+  geom_point() + 
+  labs( x = "Waist circuference", y = "Waist to hip")
+
+#correlation and plot between HBA1c and WTH, both continuous
+cor.test(sub.data$HBA1, sub.data$WTHRatio, method = "pearson")
+ggplot(sub.data, aes(HBA1, WTHRatio)) + 
+  geom_point() + 
+  labs( x = "A1c", y = "Waist to hip")
+
+#correlation and plot between glucose and WTH, both continuous
+cor.test(sub.data$G000, sub.data$WTHRatio, method = "pearson")
+ggplot(sub.data, aes(G000, WTHRatio)) + 
+  geom_point() + 
+  labs( x = "Fasting glucose", y = "Waist to hip")
+
+#correlation and plot between BMI_CAT and WTHRatio, categorical v continuous
+kruskal.test(sub.data$WTHRatio ~ sub.data$BMI_CAT)
+ggplot(sub.data, aes(as.factor(BMI_CAT), WTHRatio)) + 
+  geom_boxplot() + 
+  labs(y = "WTH Ratio", x = "BMI Category")
+
+
+#correlation and plot between BMI_CAT and WaistCircAve, categorical v continuous
+kruskal.test(sub.data$WaistCircAve ~ sub.data$BMI_CAT)
+ggplot(sub.data, aes(as.factor(BMI_CAT), WaistCircAve)) + 
+  geom_boxplot() + 
+  labs(y = "WaistCirAve", x = "BMI Category")
+
+
+#correlation and plot between BMIGROUP and WaistCircAve, categorical v continuous
+kruskal.test(sub.data$WaistCircAve ~ sub.data$BMIGROUP)
+ggplot(sub.data, aes(as.factor(BMIGROUP), WaistCircAve)) + 
+  geom_boxplot() + 
+  labs(y = "WaistCirAve", x = "BMI Group")
+
+# mean WaistCircAve = 101.776
+mean(sub.data$WaistCircAve)
+
+# mean and SD fasting glucose
+mean(sub.data$G000)
+sd(sub.data$G000)
+
+#mean and SD of A1c 
+# one missing value
+is.na(sub.data$HBA1)
+mean(sub.data$HBA1, na.rm = TRUE)
+sd(sub.data$HBA1,na.rm = TRUE )
+
+
