@@ -373,4 +373,5 @@ is.na(sub.data$HBA1)
 mean(sub.data$HBA1, na.rm = TRUE)
 sd(sub.data$HBA1,na.rm = TRUE )
 
+#################################
 
