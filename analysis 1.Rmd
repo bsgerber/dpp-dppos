@@ -2,9 +2,10 @@
 title: "R Notebook"
 author: "Bernice Man"
 date: "September 24, 2019"
-output: 
+output:
   word_document:
-    reference_docx: "word-styles-reference-01.docx"
+    reference_docx: word-styles-reference-01.docx
+  pdf_document: default
 ---
 
 Table 1 document for Analysis 1: Descriptive characteristics of sample. 
@@ -14,27 +15,36 @@ Alternative to knit: rmarkdown::render('analysis 1.rmd')
 ##### Table 1
 
 ```{r echo=FALSE, results="asis"}
-
 library(arsenal)
 
 # Read datafile, Change ChiSq test to Fisher exact, compare median WTHratio instead of mean, change to row percent
 sub.data <- readRDS(file = file.choose())
-test <- tableby(ASSIGN ~ AGEGROUP + RACE_ETH + SIBIRTH + WTHRatio, cat.test = "fe", numeric.test = "kwt", simulate.p.value = TRUE, numeric.stats = "medianq1q3" , data= sub.data)
 
+# calculate expected cell numbers
+chisq.test(sub.data$ASSIGN,sub.data$AGEGROUP)$expected
+chisq.test(sub.data$ASSIGN,sub.data$RACE_ETH)$expected
+chisq.test(sub.data$ASSIGN,sub.data$Smoke)$expected
+chisq.test(sub.data$ASSIGN,sub.data$SIPCOS)$expected
+chisq.test(sub.data$ASSIGN,sub.data$BMI_CAT)$expected
+chisq.test(sub.data$ASSIGN,sub.data$BMIGROUP)$expected
+chisq.test(sub.data$ASSIGN,sub.data$FamHx)$expected
+chisq.test(sub.data$ASSIGN,sub.data$DIABF)$expected
+
+# comparisons using fisher exact ( a few expected cells < 5) and KWT
+fetable1 <- tableby(ASSIGN ~ AGEGROUP + RACE_ETH + Smoke + SIPCOS + BMI_CAT + BMIGROUP + FamHx + SIBIRTH + WaistCircAve + WTHRatio + G000 + HBA1 + totalMETs + SOSBPA + SODBPA + TRIG + DIABF, cat.test = "fe", numeric.test = "kwt", simulate.p.value = TRUE, numeric.stats = "medianq1q3" , data= sub.data)
+
+# comparisons using chisq and KWT
 table1 <- tableby(ASSIGN ~ 
-                    chisq(AGEGROUP, "countrowpct") +
-                    fe(AGEGROUP, simulate.p.value=TRUE ) +
-                    chisq(RACE_ETH, "countrowpct") +
-                    #fisher.test(RACE_ETH, )
-                    chisq(Smoke, "countrowpct", cat.simplify = FALSE) +
-                    #fisher.test(Smoke,) +
-                    chisq(SIPCOS, "countrowpct", cat.simplify = FALSE) +
+                    chisq(AGEGROUP, "countpct") +
+                    chisq(RACE_ETH, "countpct") +
+                    chisq(Smoke, "countpct", cat.simplify = FALSE) +
+                    chisq(SIPCOS, "countpct", cat.simplify = FALSE) +
                     #fisher.test(SIPCOS,) +
-                    chisq(BMI_CAT, "countrowpct") + 
+                    chisq(BMI_CAT, "countpct") + 
                     #fisher.test(BMI_CAT) + 
-                    chisq(BMIGROUP, "countrowpct") +
+                    chisq(BMIGROUP, "countpct") +
                     #fisher.test(BMIGROUP,) +
-                    chisq(FamHx, "countrowpct") +
+                    chisq(FamHx, "countpct") +
                     #fisher.test(FamHx, ) + 
                     kwt(SIBIRTH, "medianq1q3", digits = 1) + 
                     kwt(WaistCircAve, "medianq1q3", digits = 1) +
@@ -45,8 +55,8 @@ table1 <- tableby(ASSIGN ~
                     kwt(SOSBPA, "medianq1q3", digits = 0) +
                     kwt(SODBPA, "medianq1q3", digits = 0) +
                     kwt(TRIG, "medianq1q3", digits = 0) +
-                    chisq(DIABF, "countrowpct"),
-                  #fe(DIABF, "countrowpct", )
+                    chisq(DIABF, "countpct"),
+                  #fe(DIABF, "countpct", )
                     control = tableby.control(total = FALSE),
                     numeric.simplify=TRUE,
                     cat.simplify=TRUE,
@@ -72,7 +82,7 @@ tablabels <- list(
   ASSIGN = "Treatment Arm, N(%)"
 )
 
-summary(test)
+summary(fetable1)
 summary(table1, 
         title = "Baseline Characteristics by Treatment Assignment",
         labelTranslations = tablabels,
@@ -108,7 +118,12 @@ ggplot(data = sub.data, aes(totalMETs)) +
 ```{r echo=FALSE, results="asis"}
 
 library(arsenal)
-# table of baseline characteristics by diabetes outcome, change mean to  median for WTH ratio, 
+# table of baseline characteristics by diabetes outcome, fetable5 uses fisher exact test and median for all continuous, 
+
+fetable5<- tableby(DIABF ~ AGEGROUP + RACE_ETH + Smoke + SIPCOS + BMI_CAT + BMIGROUP + FamHx + SIBIRTH + WaistCircAve + WTHRatio + G000 + HBA1 + totalMETs + SOSBPA + SODBPA + TRIG + ASSIGN, cat.test = "fe", numeric.test = "kwt", simulate.p.value = TRUE, numeric.stats = "medianq1q3" , data= sub.data)
+
+summary(fetable5)
+
 
 table5 <- tableby(DIABF ~ 
                     chisq(AGEGROUP, "countpct") +
@@ -135,13 +150,56 @@ table5 <- tableby(DIABF ~
                     data = sub.data)
 
 
+
 summary(table5, 
         title = "Baseline Characteristics by Diabetes Outcome",
         labelTranslations = tablabels,
         digits.count = 0,
         digits.pct = 1,
         digits.p = 2)
-summary (sub.data$DIABF)
+
 ```
 
+``````{r echo=FALSE, results="asis"}
+
+library(arsenal)
+
+# table of baseline characteristics by diabetes outcome, change mean to median for WTH ratio, 
+# with row percents, fetable5 uses fisher exact test and median for all continuous, 
+
+fetable5<- tableby(DIABF ~ AGEGROUP + RACE_ETH + Smoke + SIPCOS + BMI_CAT + BMIGROUP + FamHx + SIBIRTH + WaistCircAve + WTHRatio + G000 + HBA1 + totalMETs + SOSBPA + SODBPA + TRIG + ASSIGN, cat.test = "fe", numeric.test = "kwt", simulate.p.value = TRUE, numeric.stats = "medianq1q3" , data= sub.data)
+
+table5 <- tableby(DIABF ~ 
+                    chisq(AGEGROUP, "countrowpct") +
+                    chisq(RACE_ETH, "countrowpct") +
+                    chisq(Smoke, "countrowpct", cat.simplify = FALSE) +
+                    chisq(SIPCOS, "countrowpct", cat.simplify = FALSE) +
+                    chisq(BMI_CAT, "countrowpct") + 
+                    chisq(BMIGROUP, "countrowpct") +
+                    chisq(FamHx, "countrowpct") +
+                    chisq(ASSIGN, "countrowpct") +
+                    kwt(SIBIRTH, "medianq1q3", digits = 1) + 
+                    kwt(WaistCircAve, "medianq1q3", digits = 1) +
+                    kwt(WTHRatio, "medianq1q3", digits = 3) +
+                    kwt(G000, "medianq1q3", digits = 0) + 
+                    kwt(HBA1, "medianq1q3", digits = 1) + 
+                    kwt(totalMETs, "medianq1q3", digits = 1) +
+                    kwt(SOSBPA, "medianq1q3", digits = 0) +
+                    kwt(SODBPA, "medianq1q3", digits = 0) +
+                    kwt(TRIG, "medianq1q3", digits = 0),
+                    
+                    control = tableby.control(total = FALSE),
+                    numeric.simplify=TRUE,
+                    cat.simplify=TRUE,
+                    data = sub.data)
+
+summary(fetable5)
+summary(table5, 
+        title = "Baseline Characteristics by Diabetes Outcome (row percents)",
+        labelTranslations = tablabels,
+        digits.count = 0,
+        digits.pct = 1,
+        digits.p = 2)
+summary (sub.data$DIABF)
+```
 

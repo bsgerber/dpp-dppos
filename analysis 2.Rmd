@@ -27,13 +27,16 @@ library(tidyverse)
 library(caret)
 library(rms)
 library(survminer)
+library(e1071)
+
 
 # Read datafile
 sub.data <- readRDS(file = file.choose())
 
-# Make sure Placebo is reference group and drop 'troglitazone' (unused levels)
+# Make sure Placebo is reference group and drop 'troglitazone' (unused levels)- already dropped in main analysis
 sub.data$ASSIGN <- relevel(sub.data$ASSIGN, ref = "Placebo")
-sub.data$ASSIGN <- droplevels(sub.data$ASSIGN)
+
+# sub.data$ASSIGN <- droplevels(sub.data$ASSIGN)
 
 
 
@@ -121,6 +124,16 @@ theme(legend.title=element_blank()) +
   theme(axis.text = element_text(size= 11))
 
 
+### KM survival with treatment
+fitASSIGN <-survfit(m1surv ~ ASSIGN, data = sub.data)
+summary(fitASSIGN)
+plot(fitASSIGN, xlab = "Years", ylab = "Probability of Diabetes by ASSIGN")
+ggsurvplot(fitASSIGN, xlab = "Years", ylab = "Probability of Diabetes Free", xlim = c(0,3.25), 
+           title = "Survival Curve by Treatment", 
+           legend = "bottom",legend.title="", legend.labs = c("Lifestyle", "Metformin", "Placebo"),
+           palette = c("#BB1A58","#a0d42b", "#1C9DA9"))
+           
+           
  
 
 ```
@@ -266,7 +279,7 @@ plot(cal, ylim = c(0,1))
 
 ##### k-fold cross validation of logistic regression (not cox ph)
 
-# K-fold validation with logistic model
+# K-fold validation with logistic model (not used)
 train_control <- trainControl(method="cv", number = 10, savePredictions = TRUE)
 m3full <- train(DIABF ~ AGEGROUP + RACE_ETH + ASSIGN + FamHx + ztotalMETs + zWTHRatio + BMIGROUP + zG000 + zHBA1 +zlogTRIG + zWaistCircAve + BMIGROUP*ASSIGN,
             data = sub.data, trControl = train_control, method = "glm", family = "binomial")

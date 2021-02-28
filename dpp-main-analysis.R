@@ -173,15 +173,15 @@ main.data <- main.data %>%
 # Variables to change to factors: "SEX", "SODIAB", "AGEGROUP", "RACE_ETH", "SOETHN", "SIMDIAB", "SIFDIAB",
 #               "SI100CG", "SISMOK", "SIPCOS", "SOBMI", "BMI_CAT", "BMIGROUP", "SOPRTN", "DIABF",
 #               "DIABV", "FASTHYPF", "SOHSP"
-# compress AGEGROUP to 4 levels
+# compress AGEGROUP to 4 levels given small numbers in older age groups
 main.data$SEX <- factor(main.data$SEX,
                         labels = c("Male", "Female"))
 main.data$SODIAB <- factor(main.data$SODIAB,
                            labels = c("No", "Only during pregnancy", "Yes, borderline", "Yes", NA))
-#main.data$AGEGROUP <- factor(main.data$AGEGROUP,
-#                          labels = c("<40", "40-44", "45-49", "50-54", "55-59", "60+", "60+"))
 main.data$AGEGROUP <- factor(main.data$AGEGROUP,
-                             labels = c("<40", "40-44", "45-49", "50+", "50+", "50+", "50+"))
+                        labels = c("<40", "40-44", "45-49", "50-54", "55-59", "60+", "60+"))
+#main.data$AGEGROUP <- factor(main.data$AGEGROUP,
+                             #labels = c("<40", "40-44", "45-49", "50+", "50+", "50+", "50+"))
 main.data$RACE_ETH <- factor(main.data$RACE_ETH,
                              labels = c("Caucasian", "African American", "Hispanic, of any race", "All other"))
 main.data$SOETHN <- factor(main.data$SOETHN, 
@@ -305,6 +305,8 @@ sub.data <- sub.data %>%
 sub.data$ASSIGN <- droplevels(sub.data$ASSIGN, "Troglitazone")
 cat("Subjects women, DM during pregnancy, births>0, not on Troglitazone: ", nrow(sub.data))
 
+
+
 #######################################
 # Save the final subset of data (sub.data) with datetime stamp
 #######################################
@@ -314,7 +316,7 @@ saveRDS(sub.data, file = filename)
 
 
 ########################################
-#Correlations
+#Correlations of metabolic parameters
 library(ggplot2)
 #correlation and plot:FBG and A1c, both continuous
 cor.test(sub.data$G000, sub.data$HBA1, method = "pearson")
