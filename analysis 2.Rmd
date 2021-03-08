@@ -29,7 +29,7 @@ library(rms)
 library(survminer)
 library(e1071)
 library(survivalROC)
-
+library(plotROC)
 
 # Read datafile
 sub.data <- readRDS(file = file.choose())
@@ -284,23 +284,22 @@ m3full <- train(DIABF ~ AGEGROUP + RACE_ETH + ASSIGN + FamHx + ztotalMETs + zWTH
 m3full$finalModel
 
 # Calculate predicted probability of diabetes at 3 years based on cph model
-sub.data$survprob <- exp(-predict(m1, newdata=newdf, type="expected"))
+# survival ROC curve
+sub.data$survprob <- exp(-predict(m1full, newdata=newdf, type="expected"))
 
-# survival ROC curve for full  (cumulative case)
-fullROC <- survivalROC(Stime = sub.data$DIABT, 
+
+fullROC <- data.frame(survivalROC(Stime = sub.data$DIABT, 
             status = sub.data$DIABF, 
-            marker = m1surv, 
+            marker = sub.data$survprob, 
             method = "KM", 
-            predict.time = 3)
+            predict.time = 3))
 
-fullROC %>%
+FULLROC  <- fullROC %>%
   ggplot (mapping = aes (x = FP, y = TP)) +
   geom_point() +
   geom_line () 
   
   
-
-
 ```
 
 ```{r echo=TRUE}
