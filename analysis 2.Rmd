@@ -29,7 +29,7 @@ library(rms)
 library(survminer)
 library(e1071)
 library(survivalROC)
-library(plotROC)
+library(pROC)
 
 # Read datafile
 sub.data <- readRDS(file = file.choose())
@@ -289,7 +289,7 @@ sub.data$survprob <- exp(-predict(m1full, newdata=newdf, type="expected"))
 
 
 fullROC <- data.frame(survivalROC(Stime = sub.data$DIABT, 
-            status = sub.data$DIABF, 
+            status = ifelse(sub.data$DIABF=='Yes',1,0),
             marker = sub.data$survprob, 
             method = "KM", 
             predict.time = 3))
@@ -299,6 +299,9 @@ FULLROC  <- fullROC %>%
   geom_point() +
   geom_line () 
   
+
+#using pROC
+roc()
   
 ```
 
