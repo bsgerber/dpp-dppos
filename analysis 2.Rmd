@@ -16,7 +16,6 @@ Alternative to knit: rmarkdown::render('analysis 2.rmd')
 ##### Descriptives for Variables Scaled
 
 ```{r echo=TRUE}
-
 library(psych)
 library(survival)
 library(broom)
@@ -35,8 +34,8 @@ library(pROC)
 sub.data <- readRDS(file = file.choose())
 
 # Make sure Placebo is reference group and drop 'troglitazone' (unused levels)- already dropped in main analysis
-sub.data$ASSIGN <- relevel(sub.data$ASSIGN, ref = "Placebo") 
-sub.data$ASSIGN <- droplevels(sub.data$ASSIGN)
+#sub.data$ASSIGN <- relevel(sub.data$ASSIGN, ref = "Placebo") 
+#sub.data$ASSIGN <- droplevels(sub.data$ASSIGN)
 
 # Variables to normalize
 varnorm <- c('AvgHeight', 'WTHRatio','G000','HBA1','logTRIG','WaistCircAve','totalMETs')
@@ -235,10 +234,11 @@ cat('Number of subjects with complete variables:', nrow(sub.data), '(', varselec
 m1surv <- Surv(sub.data$DIABT, sub.data$DiabYes, type = "right")
 m1formfull <- as.formula(paste("m1surv ~ ", paste(c(varselectfull, varint), collapse = "+")))
 
+#for coefficients
+#m1full <-coxph(m1formfull, data=sub.data, ties='efron')
 #changed tidy to  exp for hazard ratios
-m1full <-coxph(m1formfull, data=sub.data, ties='efron')
-
 m1tidyfull <- tidy(m1full, exponentiate = TRUE, conf.int = TRUE, conf.level = 0.95)
+m1tidyfull <- tidy(m1full, conf.int = TRUE, conf.level = 0.95)
 m1tidyfull$term <- c( '40-44','45-49', '50-54', '55-59','60+',
                       'African American', 'Hispanic, of any race', 'All other', 
                       'Lifestyle', 'Metformin','FamHx', 
@@ -284,24 +284,24 @@ m3full <- train(DIABF ~ AGEGROUP + RACE_ETH + ASSIGN + FamHx + ztotalMETs + zWTH
 m3full$finalModel
 
 # Calculate predicted probability of diabetes at 3 years based on cph model
-# survival ROC curve
-sub.data$survprob <- exp(-predict(m1full, newdata=newdf, type="expected"))
+# survival ROC curve using example from https://datascienceplus.com/time-dependent-roc-for-survival-prediction-models-in-r/
+#sub.data$survprob <- exp(-predict(m1full, newdata=newdf, type="expected"))
 
+sub.data$survprob <- predict(m1full, type = "lp")
 
-fullROC <- data.frame(survivalROC(Stime = sub.data$DIABT, 
+fullROC <- survivalROC(Stime = sub.data$DIABT, 
             status = ifelse(sub.data$DIABF=='Yes',1,0),
             marker = sub.data$survprob, 
             method = "KM", 
-            predict.time = 3))
+            predict.time = 3)
 
-FULLROC  <- fullROC %>%
-  ggplot (mapping = aes (x = FP, y = TP)) +
-  geom_point() +
+FULLROC.df <- data.frame(FP = fullROC$FP, TP = fullROC$TP)
+  ggplot (mapping = aes (x = FP, y = TP), data = FULLROC.df) +
+  geom_point(size = .25) +
   geom_line () 
   
 
-#using pROC
-roc()
+
   
 ```
 
@@ -584,7 +584,21 @@ newdataBare <-with(sub.data,
 fit <- survfit(m1Bare, newdata = newdataBare, data = sub.data)
 summary(fit)
 ggsurvplot(fit)
+### ROC curve
+sub.data$survprob <- predict(m1Bare, type = "lp")
 
+fullROC <- survivalROC(Stime = sub.data$DIABT, 
+            status = ifelse(sub.data$DIABF=='Yes',1,0),
+            marker = sub.data$survprob, 
+            method = "KM", 
+            predict.time = 3)
+
+FULLROC.df <- data.frame(FP = fullROC$FP, TP = fullROC$TP)
+  ggplot (mapping = aes (x = FP, y = TP), data = FULLROC.df) +
+  geom_point(size = .25) +
+  geom_line () 
+
+  fullROC
 ```
 
 ```{r echo=TRUE}
