@@ -3,10 +3,11 @@ title: "R Notebook"
 author: "Bernice Man"
 date: "September 13, 2019"
 output:
-  word_document:
-    reference_docx: word-styles-reference-01.docx
+  pdf_document: default
   html_document:
     df_print: paged
+  word_document:
+    reference_docx: word-styles-reference-01.docx
 ---
 
 Analysis 2: Cox proportional hazards model for diabetes prediction in GDM 
@@ -28,7 +29,7 @@ library(rms)
 library(survminer)
 library(e1071)
 library(survivalROC)
-library(pROC)
+library(plotROC)
 
 # Read datafile
 sub.data <- readRDS(file = file.choose())
@@ -298,8 +299,11 @@ fullROC <- survivalROC(Stime = sub.data$DIABT,
 FULLROC.df <- data.frame(FP = fullROC$FP, TP = fullROC$TP)
   ggplot (mapping = aes (x = FP, y = TP), data = FULLROC.df) +
   geom_point(size = .25) +
-  geom_line () 
+  geom_line (color = "blue") +
+      geom_abline(intercept  = 0, slope = 1, color = "gray", size = 0.6) +
+    labs (title = "Survival ROC - Full Model", y = "True Positive Rate", x = "False Positive Rate")
   
+fullROC
 
 
   
@@ -585,20 +589,31 @@ fit <- survfit(m1Bare, newdata = newdataBare, data = sub.data)
 summary(fit)
 ggsurvplot(fit)
 ### ROC curve
-sub.data$survprob <- predict(m1Bare, type = "lp")
 
-fullROC <- survivalROC(Stime = sub.data$DIABT, 
+sub.data$survprobbare <- predict(m1Bare, type = "lp")
+
+bareROC <- survivalROC(Stime = sub.data$DIABT, 
             status = ifelse(sub.data$DIABF=='Yes',1,0),
-            marker = sub.data$survprob, 
+            marker = sub.data$survprobbare, 
             method = "KM", 
             predict.time = 3)
 
-FULLROC.df <- data.frame(FP = fullROC$FP, TP = fullROC$TP)
-  ggplot (mapping = aes (x = FP, y = TP), data = FULLROC.df) +
+bareROC.df <- data.frame(FP = bareROC$FP, TP = bareROC$TP)
+  ggplot (mapping = aes (x = FP, y = TP), data = bareROC.df) +
   geom_point(size = .25) +
-  geom_line () 
+  geom_line (color = "red") +
+    geom_abline(intercept  = 0, slope = 1, color = "gray", size = 0.6) +
+  labs (title = "Survival ROC - Parsimonious Model", y = "True Positive Rate", x = "False Positive Rate")
+  bareROC
+  
+  # B<- ggplot +
+   #   geom_line(mapping = aes (x = FP, y = TP), data = bareROC.df, color = "red") +
+  #    geom_line(mapping = aes (x = FP, y = TP), data = FULLROC.df, color = "blue") +
+ # geom_point(size = .25) 
+      
 
-  fullROC
+  #B
+  
 ```
 
 ```{r echo=TRUE}
