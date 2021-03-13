@@ -1,0 +1,462 @@
+---
+title: "R Notebook: Diabetes Prediction from DPP in GDM"
+author: "Bernice Man"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document:
+    reference_docx: word-styles-reference-01.docx
+---
+
+# Analysis 2: Cox proportional hazards model for diabetes prediction in GDM 
+
+Alternative to knit: rmarkdown::render('analysis 2.rmd')
+
+This analysis includes the development of Cox proportional hazards model to predict diabetes in women with history of gestational diabetes. The results are submitted to publication in PLOS One.
+
+Results include the generation of:
+
+- Survival curves
+- Tables and figures
+- ROC curves
+
+##### Descriptives for Variables Scaled
+
+```{r load_libraries, echo=TRUE}
+library(psych)
+library(survival)
+library(broom)
+library(ggplot2)
+library(Rmisc)
+library(knitr)
+library(tidyverse)
+library(caret)
+library(rms)
+library(survminer)
+library(e1071)
+library(survivalROC)
+library(plotROC)
+```
+
+```{r read_data, echo = TRUE}
+# Read datafile
+# raw_data <- readRDS(file = file.choose())
+raw_data <- readRDS(file = "20200114_122907_dpp_gdm_data.Rda")
+```
+
+```{r drop_tzd, echo = FALSE}
+# Make sure ASSIGN is a factor
+# Make sure Placebo is reference group and drop 'troglitazone' (unused levels)- already dropped in main analysis
+raw_data$ASSIGN <- factor(raw_data$ASSIGN)
+raw_data$ASSIGN <- relevel(raw_data$ASSIGN, ref = "Placebo") 
+raw_data$ASSIGN <- droplevels(raw_data$ASSIGN)
+```
+
+```{r normalize_data, echo = FALSE}
+# Variables to normalize
+varnorm <- c('AvgHeight', 'WTHRatio','G000','HBA1','logTRIG','WaistCircAve','totalMETs')
+zvarnorm <- paste0('z', varnorm)
+
+# Normalize and create new variable 'z' + old variable name, and add to data frame
+raw_data[zvarnorm] <- lapply(raw_data[varnorm], scale)
+```
+
+```{r describe_data, echo = FALSE}
+# Describe the results
+psych::describe(raw_data[, c(varnorm, zvarnorm)])
+
+# Number of subjects/rows
+cat('Number of subjects:', nrow(raw_data))
+```
+
+```{r set_units, echo = FALSE}
+# Specify units of time (years)
+units(raw_data$DIABT) <- "Year"
+```
+
+```{r set_outcome, echo = FALSE}
+# Add 0/1 outcome for diabetes event (1 = event), DIABF of No = censored (0), Yes = diabetes (1)
+raw_data$DiabYes = ifelse(raw_data$DIABF == "Yes", 1, 0)
+```
+
+```{r set_seed, echo = FALSE}
+# For reproducibility
+set.seed(1)
+```
+
+##### Table 1 
+
+See analysis 2.Rmd.
+
+\newpage
+
+```{r run_model, echo = FALSE}
+
+# Create cph model, tidy it up, based on vector of variables, interactions, and indicate labels
+run_model <- function(varselect, varint, labels) {
+  # Select complete cases  
+  sub_data <- raw_data[complete.cases(raw_data[, varselect]), ]
+    
+  cat('Number of subjects with complete variables:', nrow(sub_data), '(', varselect, ')')
+  
+  # Create CPH Model, DIABT is follow up time with right censored data, and DiabYes is event (1 = diabetes event)
+  # Model developed from analysis of parous women with and without GDM, removed 'Height (mean), Std'
+  surv <- Surv(sub_data$DIABT, sub_data$DiabYes, type = "right")
+  form <- as.formula(paste("surv ~ ", paste(c(varselect, varint), collapse = "+")))
+  m <- coxph(form, data = sub_data, ties = 'efron')
+  
+  # Exponentiate false for equation and coefficients
+  mtidy <- tidy(m, exponentiate = FALSE, conf.int = TRUE, conf.level = 0.95)
+  mtidy$term <- labels
+  
+  # Exponentiate true to see hazard ratios
+  mtidy_exp <- tidy(m, exponentiate = TRUE, conf.int = TRUE, conf.level = 0.95)
+  mtidy_exp$term <- labels
+  
+  # Return the model and package with all details in a list
+  return(list(model = m, tidy_model = mtidy, tidy_model_exp = mtidy_exp, surv = surv, data = sub_data, formula = form, varselect = varselect, varint = varint, labels = labels))
+}
+
+```
+
+```{r validate_model, echo = FALSE}
+
+# References
+# https://socialsciences.mcmaster.ca/jfox/Books/Companion-1E/appendix-cox-regression.pdf
+
+# k-fold cross validation of logistic regression, take cph model and cross validate
+validate_model <- function(m) {
+  
+  # Check for concordance (includes (1-c-statistic))
+  surv <- m[["surv"]]
+  concordance(surv ~ predict(m[["model"]]))
+
+  # Use cph from rms package (should give similar results to coxph)
+  rms_m <- cph(formula = m[["formula"]], data = m[["data"]], x = TRUE, y = TRUE, surv = TRUE, time.inc = 1)
+  rms_m
+
+  # Validation with 10-fold cross validation
+  v1 <- validate(rms_m, method = "crossvalidation", B = 10, dxy = T)
+  v1
+
+  # C-statistic by Dxy
+  # https://www.rdocumentation.org/packages/rms/versions/5.1-3.1/topics/validate.cph
+  # Dxy = 2 * (C - 0.5) where C is the c-index of concordance probability
+  Dxy = v1[rownames(v1) == "Dxy", colnames(v1) == "index.corrected"]
+  orig_Dxy = v1[rownames(v1) == "Dxy", colnames(v1) == "index.orig"]
+  bias_corrected_c_index <- (abs(Dxy)/2)+0.5
+  orig_c_index <- (abs(orig_Dxy)/2)+0.5
+  cat("Bias corrected c-index: ", bias_corrected_c_index)
+  cat("Original c-index: ", orig_c_index)
+  
+  # 3-year probability estimates with calibrate
+  cal <- calibrate(rms_m, B=10, u=3)
+  plot(cal, ylim = c(0,1))
+  
+  # K-fold validation with logistic model
+  train_control <- trainControl(method = "cv", number = 10, savePredictions = TRUE)
+  train_result <- train(as.formula(paste("DIABF ~ ", paste(c(m[["varselect"]], m[["varint"]]), collapse = "+"))), 
+                        data = m[["data"]], trControl = train_control, method = "glm", family = "binomial")
+  
+  # Show the final model
+  train_result$finalModel
+  
+  # Return result
+  return(rms_m)
+  
+}
+```
+
+##### Full Model with 11 Variables 
+
+This is the full model, 11 variables. This model includes BMI * treatment interaction (BMIGROUP*ASSIGN).
+
+```{r model_11_var, echo=TRUE}
+varselect <- c('AGEGROUP','RACE_ETH','ASSIGN','FamHx',
+               'zWaistCircAve','zWTHRatio','BMIGROUP',
+               'zG000','zHBA1', 'zlogTRIG','ztotalMETs')
+varint <- c('ASSIGN*BMIGROUP')
+labels <- c('40-44','45-49', '50-54', '55-59','60+',
+            'African American', 'Hispanic, of any race', 'All other', 
+            'Lifestyle', 'Metformin','FamHx', 
+            'Waist circumference,Std','Waist:Hip Ratio,Std','BMI 30-35', 'BMI 35+', 'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std','METS hr/week,Std',
+            'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+            'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+m_11_var <- run_model(varselect, varint, labels)
+kable(m_11_var[["tidy_model"]], digits = 3)
+kable(m_11_var[["tidy_model_exp"]], digits = 3)
+m_11_var_rms <- validate_model(m_11_var)
+```
+
+\newpage
+
+##### Proportional Hazards Assumption
+
+This is to check proportional hazards assumptions.
+
+```{r test_cph_assumption, echo = TRUE}
+# Check each covariate (proportional hazards assumption)
+res1 <- cox.zph(m_11_var[["model"]])
+res1
+
+# Plot residuals (Schoenfeld residuals vs. time)
+plot(res1)
+```
+
+\newpage
+
+##### Survival Plots
+
+```{r survival_plots, echo = TRUE}
+
+# Create new data frame and set DiabYes to 0 (no diabetes) and DIABT time to 3 (3 years)
+newdf <- m_11_var[["data"]]
+newdf$DIABT <- 3
+newdf$DiabYes <- 0
+
+# Calculate predicted probability of diabetes at 3 years based on cph model
+m_11_var[["data"]]$survprob <- exp(-predict(m_11_var[["model"]], newdata = newdf, type = "expected"))
+
+# Plot predicted probability by BMI graoup and treatment assignment
+ggplot(m_11_var[["data"]], aes(y = survprob, x = BMIGROUP, fill = ASSIGN)) +
+  geom_boxplot() +
+  scale_y_continuous("3-year Predicted Probability of Survival\n(No Diabetes)") +
+  scale_x_discrete() +
+  labs(x= expression(paste("BMI group (kg/m"^{2},")"))) +
+  scale_fill_manual(breaks = c("Placebo", "Lifestyle", "Metformin"), values = c("#BB1A58", "#CFCEE3", "#1C9DA9")) +
+  theme_bw() +
+  theme(text = element_text(size = 13), panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        legend.title=element_blank(), axis.text = element_text(size = 11))
+
+# KM survival with treatment figure
+surv <- m_11_var[["surv"]]
+fitASSIGN <- survfit(surv ~ ASSIGN, data = m_11_var[["data"]])
+summary(fitASSIGN)
+plot(fitASSIGN, xlab = "Years", ylab = "Probability of Diabetes by Treatment")
+ggsurvplot(fit = fitASSIGN, data = m_11_var[["data"]], xlab = "Years", ylab = "Probability of Diabetes Free", xlim = c(0, 3.25), 
+           title = "Survival Curve by Treatment", 
+           legend = "bottom", legend.title = "", legend.labs = c("Lifestyle", "Metformin", "Placebo"),
+           palette = c("#BB1A58","#a0d42b", "#1C9DA9"))
+```
+
+\newpage
+
+##### Observed Vs. Predicted Probability of Diabetes
+
+Show plot comparing observed and predicted probabilities of diabetes.
+
+```{r observed_vs_predicted, echo=TRUE}
+
+# Convert predicted probabilities to factor of deciles
+m_11_var[["data"]]$diabprobf <- factor(floor((1 - m_11_var[["data"]]$survprob) * 10),
+                                levels = 0:9,
+                                labels = c("0-9%","10-19%","20-29%","30-39%",
+                                          "40-49%","50-59%","60-69%","70-79%",
+                                          "80-89%","90-99%"))
+
+# For each decile get std dev, std error, conf int
+agg <- summarySE(m_11_var[["data"]], measurevar = "DiabYes", groupvars = "diabprobf")
+
+# As NaNs produced (maybe only 1 case in a percentile) use only complete cases so some deciles may be missing
+agg <- agg[complete.cases(agg), ]
+
+# Create plot of observed vs. predicted probability of diabetes
+ggplot(agg, aes(x = diabprobf, y = DiabYes)) +
+       geom_point() +
+       geom_errorbar(aes(ymin = pmax(DiabYes - ci, 0), ymax = pmin(DiabYes + ci, 1))) +
+       scale_y_continuous("Observed prevalence of diabetes", breaks = seq(0, 1, .1)) +
+       scale_x_discrete("Predicted 3-year probability of diabetes") +
+       theme_bw()
+```
+
+##### Goodness of CPH Model Fit
+
+```{r goodness_of_fit, echo=TRUE}
+
+# Check proportional hazards assumption
+ggcoxdiagnostics(m_11_var[["model"]], type="schoenfeld")
+
+# Check nonlinearity
+ggcoxdiagnostics(m_11_var[["model"]], type="martingale")
+
+# Check influential observations
+ggcoxdiagnostics(m_11_var[["model"]], type="deviance")
+```
+
+\newpage
+
+##### Exploratory model with 6 clinical variables
+
+6 variable model for exploration. Model was based on all parous women. Not included in manuscript.
+
+```{r model_6_var, echo=TRUE}
+varselect <- c('ASSIGN', 'zWTHRatio', 'BMIGROUP', 'zG000', 'zHBA1', 'zlogTRIG')
+varint <- c('ASSIGN*BMIGROUP')
+labels <- c('Lifestyle', 'Metformin',  'Waist:Hip Ratio, Std',
+            'BMI 30-35', 'BMI 35+', 'Fasting Glucose, Std', 'HbA1c, Std', 'Triglycerides (ln), Std',
+            'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+            'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+m_6_var <- run_model(varselect, varint, labels)
+kable(m_6_var[["tidy_model"]], digits = 3)
+kable(m_6_var[["tidy_model_exp"]], digits = 3)
+m_6_var_rms <- validate_model(m_6_var)
+```
+
+\newpage
+
+##### Reduced model with 8 clinical variables
+
+Model includes both WaistCircAve and WTHRatio with BMI * treatment interaction.
+
+Model not in revised manuscript.
+
+```{r reduced_8_var, echo=TRUE}
+varselect <- c('RACE_ETH', 'ASSIGN','zWaistCircAve', 'zWTHRatio', 'BMIGROUP','zG000','zHBA1','zlogTRIG')
+varint <- c('ASSIGN*BMIGROUP')
+labels <- c('African American', 'Hispanic, of any race', 'All other',
+            'Lifestyle', 'Metformin',
+            'Waist Circumference Ratio,Std',
+            'Waist Hip Ratio,Std',
+            'BMI 30-35', 'BMI 35+', 
+            'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std',
+            'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+            'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+m_red_8_var <- run_model(varselect, varint, labels)
+kable(m_red_8_var[["tidy_model"]], digits = 3)
+kable(m_red_8_var[["tidy_model_exp"]], digits = 3)
+m_red_8_var_rms <- validate_model(m_red_8_var)
+```
+
+\newpage
+
+##### Reduced model with 7 clinical variables
+
+Model includes Waist Circumference only (omit WTHRatio) + BMI * treatment interaction
+
+Model not in revised manuscript.
+
+```{r reduced_7_var, echo=TRUE}
+varselect <- c('RACE_ETH', 'ASSIGN','zWaistCircAve', 'BMIGROUP','zG000','zHBA1','zlogTRIG')
+varint <- c('ASSIGN*BMIGROUP')
+labels <- c('African American', 'Hispanic, of any race', 'All other',
+            'Lifestyle', 'Metformin',
+            'Waist Circumference Ratio,Std',
+            'BMI 30-35', 'BMI 35+', 
+            'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std',
+            'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+            'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+m_red_7_var <- run_model(varselect, varint, labels)
+kable(m_red_7_var[["tidy_model"]], digits = 3)
+kable(m_red_7_var[["tidy_model_exp"]], digits = 3)
+m_red_7_var_rms <- validate_model(m_red_7_var)
+```
+
+\newpage
+
+##### Reduced model with 6 clinical variables
+
+Model without WaistCircAve and WTHRatio but includes BMI * treatment interaction
+
+Includes race/ethnicity and different than prior "exploratory" 6-variable model.
+
+```{r reduced_6_var, echo=TRUE}
+varselect <- c('RACE_ETH', 'ASSIGN', 'BMIGROUP','zG000','zHBA1','zlogTRIG')
+varint <- c('ASSIGN*BMIGROUP')
+labels <- c('African American', 'Hispanic, of any race', 'All other',
+            'Lifestyle', 'Metformin',
+            'BMI 30-35', 'BMI 35+', 
+            'Fasting Glucose, Std', 'HbA1c, Std','Triglycerides (ln), Std',
+            'Lifestyle * BMI 30-35', 'Metformin * BMI 30-35', 
+            'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+m_red_6_var <- run_model(varselect, varint, labels)
+kable(m_red_6_var[["tidy_model"]], digits = 3)
+kable(m_red_6_var[["tidy_model_exp"]], digits = 3)
+m_red_6_var_rms <- validate_model(m_red_6_var)
+```
+
+\newpage
+
+##### Parsimonious model
+
+Parsimonious model with only HbA1c, fasting glucose, but includes BMI * treatment interaction
+
+```{r parsimonious_model, echo=TRUE}
+varselect <- c('ASSIGN','BMIGROUP','zG000','zHBA1')
+varint <- c('ASSIGN*BMIGROUP')
+labels <- c('Lifestyle', 'Metformin',
+            'BMI 30-35', 'BMI 35+', 
+            'Fasting Glucose, Std','HbA1c, Std',
+            'Lifestyle * BMI 30-35', 'Metformin *BMI 30-35', 
+            'Lifestyle * BMI 35+', 'Metformin * BMI 35+')
+m_par <- run_model(varselect, varint, labels)
+kable(m_par[["tidy_model"]], digits = 3)
+kable(m_par[["tidy_model_exp"]], digits = 3)
+m_par_rms <- validate_model(m_par)
+```
+
+\newpage
+
+##### Comparison of model performance
+
+The lrtest function does likelihood ratio tests for two nested models, from fits that have stats components with "Model L.R." values. For models such as psm, survreg, ols, lm which have scale parameters, it is assumed that scale parameter for the smaller model is fixed at the estimate from the larger model (see the example in rms package).
+
+All combinations of the above models are compared.
+
+```{r echo=TRUE}
+# Comparisons of nested models
+model_lst <- list(m_6_var_rms, m_11_var_rms, m_red_8_var_rms, m_red_7_var_rms, m_red_6_var_rms, m_par_rms)
+lapply(model_lst,
+  function(x) {
+    lapply(model_lst, function(y) {
+      if (!identical(x, y))
+        rms::lrtest(x, y)
+    })
+  }
+)
+```
+
+\newpage
+
+##### ROC Curves
+
+Survival ROC curve using example from:
+
+https://datascienceplus.com/time-dependent-roc-for-survival-prediction-models-in-r/
+
+For supplement in manuscript.
+
+```{r roc_curves, echo = FALSE}
+
+# Calculate predicted probability of diabetes at 3 years based on cph model
+m_11_var[["data"]]$survprob <- predict(m_11_var[["model"]], type = "lp")
+m_par[["data"]]$survprob <- predict(m_par[["model"]], type = "lp")
+
+fullROC <-  survivalROC(Stime = m_11_var[["data"]]$DIABT, 
+            status = ifelse(m_11_var[["data"]]$DIABF == 'Yes', 1, 0),
+            marker = m_11_var[["data"]]$survprob, 
+            method = "KM", 
+            predict.time = 3)
+fullROC.df <- data.frame(FP = fullROC$FP, TP = fullROC$TP, cv = fullROC$cut.values, 
+                         model = paste0("Full Model (AUC ", round(fullROC$AUC, 3), ")"))
+
+parROC <-   survivalROC(Stime = m_par[["data"]]$DIABT, 
+            status = ifelse(m_par[["data"]]$DIABF == 'Yes', 1, 0),
+            marker = m_par[["data"]]$survprob, 
+            method = "KM", 
+            predict.time = 3)
+parROC.df <- data.frame(FP = parROC$FP, TP = parROC$TP, cv = parROC$cut.values, 
+                        model = paste0("Parsimonious Model (AUC ", round(parROC$AUC, 3), ")"))
+
+all_ROC.df <- bind_rows(fullROC.df, parROC.df)
+
+# Draw the plot of TP vs. FP
+ggplot (data = all_ROC.df, mapping = aes(x = FP, y = TP, label = cv, color = model)) +
+  geom_roc(labels = FALSE, stat = "identity") +
+  style_roc(theme = theme_gray) +
+  labs(title = "Survival ROC - Full and Parsimonious Models") +
+  theme(legend.title = element_blank())
+```
+
+##### END
