@@ -3,11 +3,11 @@ title: "R Notebook: Diabetes Prediction from DPP in GDM"
 author: "Bernice Man"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
-  pdf_document: default
-  html_document:
-    df_print: paged
   word_document:
     reference_docx: word-styles-reference-01.docx
+  html_document:
+    df_print: paged
+  pdf_document: default
 ---
 
 # Analysis 2: Cox proportional hazards model for diabetes prediction in GDM 
@@ -42,8 +42,8 @@ library(plotROC)
 
 ```{r read_data, echo = TRUE}
 # Read datafile
-# raw_data <- readRDS(file = file.choose())
-raw_data <- readRDS(file = "20200114_122907_dpp_gdm_data.Rda")
+raw_data <- readRDS(file = file.choose())
+#raw_data <- readRDS(file = "20200114_122907_dpp_gdm_data.Rda")
 ```
 
 ```{r drop_tzd, echo = FALSE}
@@ -396,6 +396,30 @@ kable(m_par[["tidy_model_exp"]], digits = 3)
 m_par_rms <- validate_model(m_par)
 ```
 
+\newpage
+
+##### Survival Plots
+
+```{r survival_plots, echo = TRUE}
+
+# Create new data frame and set DiabYes to 0 (no diabetes) and DIABT time to 3 (3 years)
+newdf <- m_par[["data"]]
+newdf$DIABT <- 3
+newdf$DiabYes <- 0
+
+# Calculate predicted probability of diabetes at 3 years based on cph model
+m_par[["data"]]$survprob <- exp(-predict(m_par[["model"]], newdata = newdf, type = "expected"))
+
+# KM survival with treatment figure
+surv <- m_11_var[["surv"]]
+fitASSIGN <- survfit(surv ~ ASSIGN, data = m_11_var[["data"]])
+summary(fitASSIGN)
+plot(fitASSIGN, xlab = "Years", ylab = "Probability of Diabetes by Treatment")
+ggsurvplot(fit = fitASSIGN, data = m_11_var[["data"]], xlab = "Years", ylab = "Probability of Diabetes Free", xlim = c(0, 3.25), 
+           title = "Survival Curve by Treatment", 
+           legend = "bottom", legend.title = "", legend.labs = c("Lifestyle", "Metformin", "Placebo"),
+           palette = c("#BB1A58","#a0d42b", "#1C9DA9"))
+```
 \newpage
 
 ##### Comparison of model performance

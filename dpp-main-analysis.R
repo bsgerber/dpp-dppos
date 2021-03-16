@@ -25,7 +25,7 @@ username <- Sys.info()[7]
 paths1 <- c(
   "C:\\Users\\bgerber\\Box Sync\\DPP-DPPOS\\Reproduced Analysis\\data\\",
   "C:\\Users\\bernicem\\Box\\prediction model\\DPP-DPPOS\\Reproduced Analysis\\data\\",
-  "/Users/Wholebean/Box/prediction model/DPP-DPPOS/Reproduced Analysis/data/"
+  "/Users/Wholebean/R/DPP-DPPOS/Reproduced Analysis/data/"
 )
 names(paths1) <- c("bgerber", "bernicem", "Wholebean")
 
@@ -61,15 +61,15 @@ events <- read.sas7bdat(paste0(paths1[username], paths3[username], "events.sas7b
 activities <- read.csv("MAQactivities with Updated METs.csv")
 
 ###Bernice's new computer Feb 22,2021
-S03 <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Form_Data/Data/s03.sas7bdat")
-S05 <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Form_Data/Data/s05.sas7bdat")
-Q03 <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Form_Data/Data/q03.sas7bdat")
+S03 <- read.sas7bdat("/Users/berniceman/R/dpp-dppos/dppraw.data/dpp/Data/DPP_Data_2008/Form_Data/Data/s03.sas7bdat")
+S05 <- read.sas7bdat("/Users/berniceman/R/dpp-dppos/dppraw.data/dpp/Data/DPP_Data_2008/Form_Data/Data/s05.sas7bdat")
+Q03 <- read.sas7bdat("/Users/berniceman/R/dpp-dppos/dppraw.data/dpp/Data/DPP_Data_2008/Form_Data/Data/q03.sas7bdat")
 
-basedata <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Non-Form_Data/Data/basedata.sas7bdat")
-lab <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Non-Form_Data/Data/lab.sas7bdat")
-events <- read.sas7bdat("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/dpp/Data/DPP_Data_2008/Non-Form_Data/Data/events.sas7bdat")
+basedata <- read.sas7bdat("/Users/berniceman/R/dpp-dppos/dppraw.data/dpp/Data/DPP_Data_2008/Non-Form_Data/Data/basedata.sas7bdat")
+lab <- read.sas7bdat("/Users/berniceman/R/dpp-dppos/dppraw.data/dpp/Data/DPP_Data_2008/Non-Form_Data/Data/lab.sas7bdat")
+events <- read.sas7bdat("/Users/berniceman/R/dpp-dppos/dppraw.data/dpp/Data/DPP_Data_2008/Non-Form_Data/Data/events.sas7bdat")
 
-activities <- read.csv("/Users/berniceman/R/GDMpredictmodel/GDMpredictmodel/data/MAQactivities with Updated METs.csv")
+activities <- read.csv("/Users/berniceman/R/dpp-dppos/MAQactivities with Updated METs.csv")
 
 # Select data of interest for S03, S05 (specify variables)
 # Use "RUN" visit for Q03 physical activity data and lab data
