@@ -8,4 +8,4 @@ PONE-D-20-34391R1
 This repository includes the R code for all analyses, including R Markdown output
 
 # Data
-Requests for data is through the [NIDDK Central Repository](https://repository.niddk.nih.gov/studies/dpp/)
+Requests for data can be made through the [NIDDK Central Repository](https://repository.niddk.nih.gov/studies/dpp/)
