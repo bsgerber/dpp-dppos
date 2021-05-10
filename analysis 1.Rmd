@@ -19,6 +19,7 @@ library(arsenal)
 
 # Read datafile, Change ChiSq test to Fisher exact, compare median WTHratio instead of mean, change to row percent
 sub.data <- readRDS(file = file.choose())
+#using 20210314_105719_dpp_gdm_data.Rda
 
 # calculate expected cell numbers
 chisq.test(sub.data$ASSIGN,sub.data$AGEGROUP)$expected
