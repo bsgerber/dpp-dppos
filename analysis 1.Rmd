@@ -40,13 +40,9 @@ table1 <- tableby(ASSIGN ~
                     chisq(RACE_ETH, "countpct") +
                     chisq(Smoke, "countpct", cat.simplify = FALSE) +
                     chisq(SIPCOS, "countpct", cat.simplify = FALSE) +
-                    #fisher.test(SIPCOS,) +
                     chisq(BMI_CAT, "countpct") + 
-                    #fisher.test(BMI_CAT) + 
                     chisq(BMIGROUP, "countpct") +
-                    #fisher.test(BMIGROUP,) +
                     chisq(FamHx, "countpct") +
-                    #fisher.test(FamHx, ) + 
                     kwt(SIBIRTH, "medianq1q3", digits = 1) + 
                     kwt(WaistCircAve, "medianq1q3", digits = 1) +
                     kwt(WTHRatio, "medianq1q3", digits = 3) +
@@ -57,7 +53,6 @@ table1 <- tableby(ASSIGN ~
                     kwt(SODBPA, "medianq1q3", digits = 0) +
                     kwt(TRIG, "medianq1q3", digits = 0) +
                     chisq(DIABF, "countpct"),
-                  #fe(DIABF, "countpct", )
                     control = tableby.control(total = FALSE),
                     numeric.simplify=TRUE,
                     cat.simplify=TRUE,

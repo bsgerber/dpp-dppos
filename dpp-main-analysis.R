@@ -222,7 +222,6 @@ main.data$SOHSP <- factor(main.data$SOHSP,
 #######################################
 
 # Create new ethnicity variable- will use RACE_ETH
-# Remove?
 
 main.data[which(main.data$RACE_ETH == "Caucasian"), "Ethnic"] <- "Caucasian"
 main.data[which(main.data$RACE_ETH == "African American"), "Ethnic"] <- "African American"
@@ -313,67 +312,4 @@ cat("Subjects women, DM during pregnancy, births>0, not on Troglitazone: ", nrow
 
 filename <- paste0(format(Sys.time(), '%Y%m%d_%H%M%S_'), 'dpp_gdm_data.Rda')
 saveRDS(sub.data, file = filename)
-
-
-########################################
-#Correlations of metabolic parameters
-library(ggplot2)
-#correlation and plot:FBG and A1c, both continuous
-cor.test(sub.data$G000, sub.data$HBA1, method = "pearson")
-ggplot(sub.data, aes(G000, HBA1)) + 
-  geom_point() + 
-  labs( x = "fasting glucose", y = "hemoglobin a1c")
-
-#correlation and plot: waist circuference and WTH ratio, both continuous
-cor.test(sub.data$WaistCircAve, sub.data$WTHRatio, method = "pearson")
-ggplot(sub.data, aes(WaistCircAve, WTHRatio)) + 
-  geom_point() + 
-  labs( x = "Waist circuference", y = "Waist to hip")
-
-#correlation and plot between HBA1c and WTH, both continuous
-cor.test(sub.data$HBA1, sub.data$WTHRatio, method = "pearson")
-ggplot(sub.data, aes(HBA1, WTHRatio)) + 
-  geom_point() + 
-  labs( x = "A1c", y = "Waist to hip")
-
-#correlation and plot between glucose and WTH, both continuous
-cor.test(sub.data$G000, sub.data$WTHRatio, method = "pearson")
-ggplot(sub.data, aes(G000, WTHRatio)) + 
-  geom_point() + 
-  labs( x = "Fasting glucose", y = "Waist to hip")
-
-#correlation and plot between BMI_CAT and WTHRatio, categorical v continuous
-kruskal.test(sub.data$WTHRatio ~ sub.data$BMI_CAT)
-ggplot(sub.data, aes(as.factor(BMI_CAT), WTHRatio)) + 
-  geom_boxplot() + 
-  labs(y = "WTH Ratio", x = "BMI Category")
-
-
-#correlation and plot between BMI_CAT and WaistCircAve, categorical v continuous
-kruskal.test(sub.data$WaistCircAve ~ sub.data$BMI_CAT)
-ggplot(sub.data, aes(as.factor(BMI_CAT), WaistCircAve)) + 
-  geom_boxplot() + 
-  labs(y = "WaistCirAve", x = "BMI Category")
-
-
-#correlation and plot between BMIGROUP and WaistCircAve, categorical v continuous
-kruskal.test(sub.data$WaistCircAve ~ sub.data$BMIGROUP)
-ggplot(sub.data, aes(as.factor(BMIGROUP), WaistCircAve)) + 
-  geom_boxplot() + 
-  labs(y = "WaistCirAve", x = "BMI Group")
-
-# mean WaistCircAve = 101.776
-mean(sub.data$WaistCircAve)
-
-# mean and SD fasting glucose
-mean(sub.data$G000)
-sd(sub.data$G000)
-
-#mean and SD of A1c 
-# one missing value
-is.na(sub.data$HBA1)
-mean(sub.data$HBA1, na.rm = TRUE)
-sd(sub.data$HBA1,na.rm = TRUE )
-
-#################################
 
